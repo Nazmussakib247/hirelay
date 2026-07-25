@@ -1,0 +1,67 @@
+[project]
+name = "hr-recruiting-backend"
+version = "7.0.0"
+description = "Automated HR Recruiting System — FastAPI backend"
+requires-python = ">=3.11"
+authors = [{ name = "Nazmus Sakib" }]
+license = { text = "MIT" }
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["app", "tests"]
+
+[tool.ruff.lint]
+# Enable a pragmatic, high-signal rule set.
+select = [
+    "E", "W",   # pycodestyle
+    "F",         # pyflakes
+    "I",         # isort
+    "B",         # flake8-bugbear
+    "C4",        # comprehensions
+    "UP",        # pyupgrade
+    "SIM",       # simplify
+    "ASYNC",     # async best practices
+]
+ignore = [
+    "E501",   # line length handled by black
+    "B008",   # FastAPI uses function calls (Depends()) in defaults by design
+    "UP017",  # keep datetime.timezone.utc for 3.10+ compatibility
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]  # allow asserts in tests
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_return_any = true
+no_implicit_optional = true
+check_untyped_defs = true
+ignore_missing_imports = true
+plugins = ["pydantic.mypy"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+# --cov-fail-under pins the floor so coverage cannot silently rot: without it
+# a refactor can delete tested paths and CI stays green. Raise the number when
+# coverage improves; never lower it to make a build pass.
+addopts = "-q --strict-markers --cov=app --cov-report=term-missing --cov-fail-under=70"
+markers = [
+    "integration: tests that require a live PostgreSQL database",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["app"]
+omit = ["app/__init__.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true

@@ -1,0 +1,516 @@
+{
+  "id": "HrMasterWf000001",
+  "name": "HR Master Automation — CV Match, Emails, Job Posting, Daily Report",
+  "active": true,
+  "settings": { "executionOrder": "v1" },
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cv-uploaded",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "trig-cv-uploaded",
+      "name": "Trigger: CV Uploaded",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "hr-cv-uploaded"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://backend:8000/auth/login",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ username: $env.N8N_BACKEND_USER || 'admin', password: $env.N8N_BACKEND_PASSWORD || 'admin123' }) }}",
+        "options": { "timeout": 15000 }
+      },
+      "id": "a1-login",
+      "name": "Login to Backend (Match)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 0],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://backend:8000/jobs",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.access_token }}"
+            }
+          ]
+        },
+        "options": { "timeout": 15000 }
+      },
+      "id": "a2-get-jobs",
+      "name": "Get Jobs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 0],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pick the job to match against: the uploaded payload may name a job_id;\n// otherwise use the NEWEST active job (sorted, not order-dependent).\n// If the payload identifies the candidate, match only that candidate --\n// avoids re-matching (and re-emailing) every pending candidate on each upload.\nconst hook = $('Trigger: CV Uploaded').first().json;\nconst payload = hook.body ?? hook;\nconst token = $('Login to Backend (Match)').first().json.access_token;\nif (!token) {\n  throw new Error('Backend login failed -- no access token in response');\n}\nconst jobs = $input\n  .all()\n  .flatMap((i) => (Array.isArray(i.json) ? i.json : [i.json]))\n  .filter((j) => j && j.id);\nconst active = jobs\n  .filter((j) => (j.status ?? 'active') === 'active')\n  .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));\nconst jobId = payload.job_id || (active[0] && active[0].id);\nif (!jobId) {\n  throw new Error('No active job available to match against');\n}\nconst matchUrl = payload.candidate_id\n  ? `http://backend:8000/match/${payload.candidate_id}/${jobId}?auto_email=true`\n  : `http://backend:8000/match-all/${jobId}?auto_email=true`;\nreturn [{ json: { job_id: jobId, token, candidate_id: payload.candidate_id ?? null, match_url: matchUrl } }];"
+      },
+      "id": "a3-pick-job",
+      "name": "Pick Target Job",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.match_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.token }}"
+            }
+          ]
+        },
+        "options": { "timeout": 120000 }
+      },
+      "id": "a4-run-match",
+      "name": "Run AI Match",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [880, 0]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "match-result",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "trig-match-result",
+      "name": "Trigger: Match Result",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 320],
+      "webhookId": "hr-match-result"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "cond-email-not-sent",
+              "leftValue": "={{ $json.body.email_sent }}",
+              "rightValue": "",
+              "operator": { "type": "boolean", "operation": "false", "singleValue": true }
+            },
+            {
+              "id": "cond-has-email",
+              "leftValue": "={{ $json.body.candidate_email }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEmpty", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b1-needs-email",
+      "name": "Backend Email Failed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [220, 320]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "cond-shortlisted",
+              "leftValue": "={{ $json.body.status }}",
+              "rightValue": "shortlisted",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b2-shortlisted",
+      "name": "Shortlisted?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.SMTP_USER }}",
+        "toEmail": "={{ $json.body.candidate_email }}",
+        "subject": "=Interview Invitation — {{ $json.body.job_title }}",
+        "emailFormat": "html",
+        "html": "=<!DOCTYPE html><html><body style='font-family:Arial,sans-serif;background:#f3f4f6;padding:32px'><div style='max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden'><div style='background:linear-gradient(135deg,#1e40af,#3b82f6);padding:28px;text-align:center'><h1 style='color:#fff;margin:0'>Interview Invitation</h1><p style='color:rgba(255,255,255,.85);margin:8px 0 0'>Congratulations! You have been shortlisted</p></div><div style='padding:28px'><p>Dear <strong>{{ $json.body.candidate_name || 'Candidate' }}</strong>,</p><p style='margin:16px 0'>You have been shortlisted for <strong>{{ $json.body.job_title }}</strong> with a match score of <strong style='color:#059669'>{{ $json.body.final_score }}%</strong>.</p><div style='background:#f9fafb;border-radius:8px;padding:16px;margin:16px 0'><p><strong>Position:</strong> {{ $json.body.job_title }}</p><p style='margin-top:8px'><strong>Format:</strong> Online video interview</p></div><p style='color:#6b7280;font-size:14px'>Our HR team will contact you shortly with the interview schedule and meeting link.</p></div></div></body></html>",
+        "options": {}
+      },
+      "id": "b3-interview-email",
+      "name": "Send Interview Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [660, 220],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "smtp": { "id": "HrSmtpFromEnv001", "name": "HR SMTP (.env)" }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.SMTP_USER }}",
+        "toEmail": "={{ $json.body.candidate_email }}",
+        "subject": "=Application Update — {{ $json.body.job_title }}",
+        "emailFormat": "html",
+        "html": "=<!DOCTYPE html><html><body style='font-family:Arial,sans-serif;background:#f3f4f6;padding:32px'><div style='max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden'><div style='background:#6b7280;padding:24px;text-align:center'><h1 style='color:#fff;margin:0;font-size:20px'>Application Update</h1></div><div style='padding:28px'><p>Dear <strong>{{ $json.body.candidate_name || 'Candidate' }}</strong>,</p><p style='margin:16px 0;color:#6b7280'>Thank you for applying for <strong>{{ $json.body.job_title }}</strong>. After careful review, your profile does not match our current requirements. We will keep your CV on file for future opportunities.</p><p>Best regards,<br><strong>HR Team</strong></p></div></div></body></html>",
+        "options": {}
+      },
+      "id": "b4-rejection-email",
+      "name": "Send Rejection Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [660, 420],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "smtp": { "id": "HrSmtpFromEnv001", "name": "HR SMTP (.env)" }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": { "__rl": true, "mode": "list", "value": "public" },
+        "table": { "__rl": true, "mode": "list", "value": "email_logs" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "candidate_id": "={{ $('Trigger: Match Result').item.json.body.candidate_id }}",
+            "email_type": "n8n_trigger",
+            "to_email": "={{ $('Trigger: Match Result').item.json.body.candidate_email }}",
+            "subject": "=n8n fallback email — {{ $('Trigger: Match Result').item.json.body.job_title }} ({{ $('Trigger: Match Result').item.json.body.status }})",
+            "status": "sent"
+          },
+          "matchingColumns": []
+        },
+        "options": {}
+      },
+      "id": "b5-log-sent",
+      "name": "Log Email Sent",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [880, 300],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "postgres": { "id": "HrPostgresEnv001", "name": "HR Postgres (.env)" }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": { "__rl": true, "mode": "list", "value": "public" },
+        "table": { "__rl": true, "mode": "list", "value": "email_logs" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "candidate_id": "={{ $('Trigger: Match Result').item.json.body.candidate_id }}",
+            "email_type": "n8n_trigger",
+            "to_email": "={{ $('Trigger: Match Result').item.json.body.candidate_email }}",
+            "subject": "=n8n fallback email FAILED — {{ $('Trigger: Match Result').item.json.body.job_title }} ({{ $('Trigger: Match Result').item.json.body.status }})",
+            "status": "failed",
+            "error_msg": "={{ ($json.error && ($json.error.message || $json.error)) || 'SMTP send failed after retries' }}"
+          },
+          "matchingColumns": []
+        },
+        "options": {}
+      },
+      "id": "b6-log-failed",
+      "name": "Log Email Failure",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [880, 500],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "postgres": { "id": "HrPostgresEnv001", "name": "HR Postgres (.env)" }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "job-posted",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "trig-job-posted",
+      "name": "Trigger: Job Posted",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 760],
+      "webhookId": "hr-job-posted"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build the announcement with HTML parse mode + escaping so job titles or\n// descriptions containing * _ [ ] < > & can never break Telegram formatting.\nconst hook = $('Trigger: Job Posted').first().json;\nconst b = hook.body ?? hook;\nif (!b.job_id || !b.job_title) {\n  throw new Error('Invalid job-posted payload: job_id and job_title are required');\n}\nconst esc = (s) => String(s ?? '')\n  .replace(/&/g, '&amp;')\n  .replace(/</g, '&lt;')\n  .replace(/>/g, '&gt;');\nconst skills = Array.isArray(b.required_skills) ? b.required_skills.join(', ') : '';\nconst desc = String(b.description || '').substring(0, 200);\nconst applyUrl = b.apply_url || 'careers@yourcompany.com';\nconst text =\n  `<b>We are hiring!</b>\\n\\n` +\n  `<b>${esc(b.job_title)}</b>\\n\\n` +\n  `Experience: ${Number(b.min_experience) || 0}+ years\\n` +\n  `Skills: ${esc(skills)}\\n\\n` +\n  `${esc(desc)}\\n\\n` +\n  `Apply: ${esc(applyUrl)}\\n\\n` +\n  `#hiring #jobs #career`;\nreturn [{ json: { job_id: b.job_id, text } }];"
+      },
+      "id": "c1-build-msg",
+      "name": "Build Telegram Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 760]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $env.TELEGRAM_CHANNEL_ID }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "id": "c2-telegram",
+      "name": "Post to Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [440, 760],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "telegramApi": { "id": "HrTelegramEnv01", "name": "HR Telegram Bot (.env)" }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": { "__rl": true, "mode": "list", "value": "public" },
+        "table": { "__rl": true, "mode": "list", "value": "job_postings" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "job_id": "={{ $('Build Telegram Message').item.json.job_id }}",
+            "platforms_attempted": "={{ '{telegram}' }}",
+            "results": "={{ JSON.stringify({ telegram: { status: 'success', message_id: $json.result ? $json.result.message_id : ($json.message_id || null), via: 'n8n' } }) }}"
+          },
+          "matchingColumns": []
+        },
+        "options": {}
+      },
+      "id": "c3-log-posting",
+      "name": "Log Posting to DB",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [660, 680],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "postgres": { "id": "HrPostgresEnv001", "name": "HR Postgres (.env)" }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": { "__rl": true, "mode": "list", "value": "public" },
+        "table": { "__rl": true, "mode": "list", "value": "job_postings" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "job_id": "={{ $('Build Telegram Message').item.json.job_id }}",
+            "platforms_attempted": "={{ '{telegram}' }}",
+            "results": "={{ JSON.stringify({ telegram: { status: 'failed', error: ($json.error && ($json.error.message || $json.error)) || 'telegram send failed after retries', via: 'n8n' } }) }}"
+          },
+          "matchingColumns": []
+        },
+        "options": {}
+      },
+      "id": "c4-log-failed",
+      "name": "Log Failed Posting",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [660, 860],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "postgres": { "id": "HrPostgresEnv001", "name": "HR Postgres (.env)" }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * 1-5"
+            }
+          ]
+        }
+      },
+      "id": "trig-daily-report",
+      "name": "Trigger: Weekday 9 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 1120]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://backend:8000/auth/login",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ username: $env.N8N_BACKEND_USER || 'admin', password: $env.N8N_BACKEND_PASSWORD || 'admin123' }) }}",
+        "options": { "timeout": 15000 }
+      },
+      "id": "d1-login",
+      "name": "Login to Backend (Report)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 1120],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://backend:8000/analytics/report",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.access_token }}"
+            }
+          ]
+        },
+        "options": { "timeout": 30000 }
+      },
+      "id": "d2-fetch-report",
+      "name": "Fetch Analytics Report",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 1120],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.SMTP_USER }}",
+        "toEmail": "={{ $env.HR_ADMIN_EMAIL || $env.SMTP_USER }}",
+        "subject": "=Daily HR Report — {{ $now.format('yyyy-MM-dd') }}",
+        "emailFormat": "html",
+        "html": "=<!DOCTYPE html><html><body style='font-family:Arial,sans-serif;background:#f3f4f6;padding:32px'><div style='max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden'><div style='background:linear-gradient(135deg,#1B3A6B,#2E75B6);padding:24px;text-align:center'><h2 style='color:#fff;margin:0'>Daily HR Recruiting Report</h2><p style='color:rgba(255,255,255,.8);margin:6px 0 0'>{{ $now.format('cccc, LLLL d yyyy') }}</p></div><div style='padding:28px'><pre style='background:#f9fafb;padding:20px;border-radius:8px;font-family:monospace;font-size:12px;line-height:1.7;white-space:pre-wrap;color:#374151'>{{ $json.report || 'No report data available — check backend /analytics/report.' }}</pre><p style='margin-top:20px;color:#9ca3af;font-size:12px;text-align:center'>Generated by HR Recruiting System - n8n Automation</p></div></div></body></html>",
+        "options": {}
+      },
+      "id": "d3-email-report",
+      "name": "Email Report to HR Admin",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [660, 1120],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "smtp": { "id": "HrSmtpFromEnv001", "name": "HR SMTP (.env)" }
+      }
+    }
+  ],
+  "connections": {
+    "Trigger: CV Uploaded": {
+      "main": [[{ "node": "Login to Backend (Match)", "type": "main", "index": 0 }]]
+    },
+    "Login to Backend (Match)": {
+      "main": [[{ "node": "Get Jobs", "type": "main", "index": 0 }]]
+    },
+    "Get Jobs": {
+      "main": [[{ "node": "Pick Target Job", "type": "main", "index": 0 }]]
+    },
+    "Pick Target Job": {
+      "main": [[{ "node": "Run AI Match", "type": "main", "index": 0 }]]
+    },
+    "Trigger: Match Result": {
+      "main": [[{ "node": "Backend Email Failed?", "type": "main", "index": 0 }]]
+    },
+    "Backend Email Failed?": {
+      "main": [
+        [{ "node": "Shortlisted?", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Shortlisted?": {
+      "main": [
+        [{ "node": "Send Interview Email", "type": "main", "index": 0 }],
+        [{ "node": "Send Rejection Email", "type": "main", "index": 0 }]
+      ]
+    },
+    "Send Interview Email": {
+      "main": [
+        [{ "node": "Log Email Sent", "type": "main", "index": 0 }],
+        [{ "node": "Log Email Failure", "type": "main", "index": 0 }]
+      ]
+    },
+    "Send Rejection Email": {
+      "main": [
+        [{ "node": "Log Email Sent", "type": "main", "index": 0 }],
+        [{ "node": "Log Email Failure", "type": "main", "index": 0 }]
+      ]
+    },
+    "Trigger: Job Posted": {
+      "main": [[{ "node": "Build Telegram Message", "type": "main", "index": 0 }]]
+    },
+    "Build Telegram Message": {
+      "main": [[{ "node": "Post to Telegram", "type": "main", "index": 0 }]]
+    },
+    "Post to Telegram": {
+      "main": [
+        [{ "node": "Log Posting to DB", "type": "main", "index": 0 }],
+        [{ "node": "Log Failed Posting", "type": "main", "index": 0 }]
+      ]
+    },
+    "Trigger: Weekday 9 AM": {
+      "main": [[{ "node": "Login to Backend (Report)", "type": "main", "index": 0 }]]
+    },
+    "Login to Backend (Report)": {
+      "main": [[{ "node": "Fetch Analytics Report", "type": "main", "index": 0 }]]
+    },
+    "Fetch Analytics Report": {
+      "main": [[{ "node": "Email Report to HR Admin", "type": "main", "index": 0 }]]
+    }
+  }
+}

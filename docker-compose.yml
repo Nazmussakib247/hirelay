@@ -1,0 +1,159 @@
+name: hr-recruiting
+
+services:
+  # ── PostgreSQL Database ─────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: hr_db
+    environment:
+      POSTGRES_USER:     ${POSTGRES_USER:-hruser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hrpassword}
+      POSTGRES_DB:       ${POSTGRES_DB:-hrdb}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      # Bound to loopback only: psql access from the host machine still works,
+      # but the database is no longer exposed to the local network.
+      # Host port is 5433 (not 5432) to avoid clashing with a local Postgres or
+      # a Windows-reserved port range. Containers still talk to it on 5432 via
+      # the internal network (the backend uses host "db", port 5432), so this
+      # only changes how the HOST reaches the DB: psql -h localhost -p 5433.
+      - "127.0.0.1:5433:5432"
+    healthcheck:
+      test:     ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hruser} -d ${POSTGRES_DB:-hrdb}"]
+      interval: 5s
+      timeout:  5s
+      retries:  10
+    restart: unless-stopped
+
+  # ── FastAPI Backend ─────────────────────────────────────────────────────
+  backend:
+    build:
+      context:    ./backend
+      dockerfile: Dockerfile
+    container_name: hr_backend
+    env_file: .env
+    environment:
+      DATABASE_URL:    postgresql://${POSTGRES_USER:-hruser}:${POSTGRES_PASSWORD:-hrpassword}@db:5432/${POSTGRES_DB:-hrdb}
+      N8N_WEBHOOK_URL: ${N8N_WEBHOOK_URL:-http://n8n:5678/webhook/match-result}
+      N8N_CV_WEBHOOK_URL: ${N8N_CV_WEBHOOK_URL:-http://n8n:5678/webhook/cv-uploaded}
+      JOB_WEBHOOK_URL: ${JOB_WEBHOOK_URL:-http://n8n:5678/webhook/job-posted}
+      # Local dev runs in development so the placeholder JWT secret is accepted.
+      # For production set ENVIRONMENT=production and a strong JWT_SECRET in .env.
+      ENVIRONMENT:     ${ENVIRONMENT:-development}
+      CORS_ORIGINS:    ${CORS_ORIGINS:-http://localhost:3000,http://localhost:5173}
+      # The frontend's nginx is the only intended entry point, so X-Forwarded-For
+      # comes from a trusted hop and per-IP rate limits key on the real client.
+      TRUST_PROXY_HEADERS: ${TRUST_PROXY_HEADERS:-true}
+    ports:
+      # Bound to loopback, like the database. Browser traffic goes through the
+      # frontend's nginx on :3000, which also enforces client_max_body_size —
+      # publishing 0.0.0.0:8000 let a client bypass nginx and hit FastAPI
+      # directly, defeating that upload cap. Use 127.0.0.1:8000 for /docs.
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test:     ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\" || exit 1"]
+      interval: 10s
+      timeout:  5s
+      retries:  5
+
+  # ── React Frontend ──────────────────────────────────────────────────────
+  frontend:
+    build:
+      context:    ./frontend
+      dockerfile: Dockerfile
+      args:
+        # Empty → SPA calls the relative /api path and nginx proxies to the
+        # backend container, so the stack works from any browser/host.
+        # Set VITE_API_URL only to point the bundle at an external API.
+        VITE_API_URL: ${VITE_API_URL:-}
+    container_name: hr_frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── n8n: one-shot workflow + credential auto-import ────────────────────
+  # Renders SMTP/Telegram/Postgres credentials from .env and imports the 4
+  # HR workflows (fixed IDs → idempotent re-import, no manual import needed).
+  # Runs once, exits, then the main n8n service starts.
+  n8n-import:
+    image: n8nio/n8n:1.62.1  # pinned: :latest makes the demo non-reproducible
+    container_name: hr_n8n_import
+    entrypoint: ["/bin/sh", "/workflows/scripts/import.sh"]
+    environment:
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY:-hr-local-dev-encryption-key-change-me}
+      - N8N_DIAGNOSTICS_ENABLED=false
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=db
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=${POSTGRES_DB:-hrdb}
+      - DB_POSTGRESDB_USER=${POSTGRES_USER:-hruser}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD:-hrpassword}
+      - DB_POSTGRESDB_SCHEMA=n8n
+      # Credential material rendered into n8n by scripts/render-credentials.js
+      - SMTP_HOST=${SMTP_HOST:-smtp.gmail.com}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./n8n-workflows:/workflows:ro
+    restart: "no"
+
+  # ── n8n Workflow Automation ─────────────────────────────────────────────
+  n8n:
+    image: n8nio/n8n:1.62.1  # pinned: :latest makes the demo non-reproducible
+    container_name: hr_n8n
+    environment:
+      # n8n >= 1.0 removed N8N_BASIC_AUTH_*; the owner account is created on
+      # first visit to http://localhost:5678.
+      - N8N_SECURE_COOKIE=false
+      - GENERIC_TIMEZONE=${TZ:-Asia/Dhaka}
+      - TZ=${TZ:-Asia/Dhaka}
+      - WEBHOOK_URL=http://localhost:5678/
+      - N8N_HOST=0.0.0.0
+      - N8N_PORT=5678
+      - N8N_DIAGNOSTICS_ENABLED=false
+      - N8N_RUNNERS_ENABLED=true
+      # Same key as n8n-import so imported credentials decrypt correctly.
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY:-hr-local-dev-encryption-key-change-me}
+      # Workflows read these via {{ $env.* }} expressions.
+      - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
+      - SMTP_USER=${SMTP_USER:-}
+      - HR_ADMIN_EMAIL=${HR_ADMIN_EMAIL:-}
+      - TELEGRAM_CHANNEL_ID=${TELEGRAM_CHANNEL_ID:-}
+      - N8N_BACKEND_USER=${N8N_BACKEND_USER:-admin}
+      - N8N_BACKEND_PASSWORD=${N8N_BACKEND_PASSWORD:-admin123}
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=db
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=${POSTGRES_DB:-hrdb}
+      - DB_POSTGRESDB_USER=${POSTGRES_USER:-hruser}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD:-hrpassword}
+      - DB_POSTGRESDB_SCHEMA=n8n
+    ports:
+      - "5678:5678"
+    depends_on:
+      db:
+        condition: service_healthy
+      n8n-import:
+        condition: service_completed_successfully
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./n8n-workflows:/workflows:ro
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  n8n_data:

@@ -1,0 +1,41 @@
+{
+  "compilerOptions": {
+    "target": "ES2021",
+    "lib": ["ES2021", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "useDefineForClassFields": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+
+    // HONEST STATUS — read before quoting "strict: true" as a quality claim.
+    //
+    // "strict" above applies only to .ts/.tsx files. Most of this app is still
+    // untyped .jsx (App.jsx, Analytics.jsx, ui/primitives.jsx, ui/foundation.jsx
+    // ~= 3,300 of ~3,900 lines), and with "checkJs": false those files are not
+    // checked at all — so `npm run typecheck` currently validates roughly 15%
+    // of the codebase, not all of it.
+    //
+    // Measured: flipping "checkJs" to true today produces 551 errors
+    // (186 TS2339 property-does-not-exist, 147 TS7006 implicit-any parameter,
+    // 92 TS7031 implicit-any binding, 40 TS18046 unknown-typed value).
+    // That is real migration work, not a config flip, so the flag stays off
+    // rather than breaking the blocking CI typecheck. Use `npm run
+    // typecheck:strict` to watch that number come down as .jsx files are
+    // converted; flip this to true when it reaches zero.
+    "allowJs": true,
+    "checkJs": false,
+
+    "types": ["vite/client"]
+  },
+  "include": ["src"]
+}

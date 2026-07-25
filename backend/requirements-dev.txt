@@ -1,0 +1,21 @@
+# ── Development & test dependencies ───────────────────────────────────────
+-r requirements.txt
+
+# Testing
+pytest==8.2.0
+pytest-asyncio==0.23.7
+pytest-cov==5.0.0
+asgi-lifespan==2.1.0
+
+# Linting / formatting / typing
+ruff==0.4.4
+black==24.4.2
+mypy==1.10.0
+
+# Database migrations
+alembic==1.13.1
+SQLAlchemy==2.0.30
+psycopg[binary]==3.1.19
+
+# Pre-commit
+pre-commit==3.7.1
