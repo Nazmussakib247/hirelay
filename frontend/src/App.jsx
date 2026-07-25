@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, createContext, useContext } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Analytics from "./Analytics.jsx";
 
 /* ─── CONFIG ──────────────────────────────────────────────────────────── */
@@ -12,21 +12,17 @@ import { API_BASE_URL as API } from "./config";
 import { getToken, setToken, clearToken } from "./auth/token";
 export { getToken, setToken, clearToken };
 
-// ── JWT decode (no library needed for payload read) ────────────────────
-function decodeJWT(token) {
-  try {
-    const payload = token.split(".")[1];
-    return JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
-  } catch { return null; }
-}
+// ── JWT decode — extracted to a shared util (decomposition phase 2) ─────
+import { decodeJWT } from "./lib/jwt";
 
 // Authenticated fetch wrapper — implemented in a typed module (src/api/client.ts).
 import { api, apiDownload } from "./api/client";
 
-/* ─── AUTH CONTEXT ────────────────────────────────────────────────────── */
-// Provides currentUser and helpers to any descendant component
-const AuthContext = createContext(null);
-export const useAuth = () => useContext(AuthContext);
+/* ─── AUTH CONTEXT (extracted to ./auth/context — decomposition phase 2) ─
+   AuthContext is provided by the App root below; useAuth() consumes it in the
+   components still living in this file. Kept in its own module so sibling
+   feature files can import useAuth without importing App (no import cycle). */
+import { AuthContext, useAuth } from "./auth/context";
 
 /* ─── SHARED UI (extracted modules — frontend decomposition phase 1) ──── */
 import { T, Icon, GLOBAL_CSS } from "./ui/foundation";
@@ -38,42 +34,8 @@ import {
 import { ForceChangePasswordModal } from "./features/auth/ForceChangePasswordModal";
 import { InterviewsTab } from "./features/interviews/InterviewsTab";
 
-/* ─── STATS BAR ───────────────────────────────────────────────────────── */
-const STAT_CFG = [
-  { key: "total_candidates",    label: "Total CVs",   color: T.accent,  Ic: Icon.fileText },
-  { key: "pending",             label: "Pending",     color: T.amber,   Ic: Icon.list },
-  { key: "shortlisted",         label: "Shortlisted", color: T.green,   Ic: Icon.check },
-  { key: "rejected",            label: "Rejected",    color: T.red,     Ic: Icon.xCircle },
-  { key: "interviews_scheduled",label: "Interviews",  color: T.purple,  Ic: Icon.calendar },
-  { key: "emails_sent",         label: "Emails Sent", color: T.amber, Ic: Icon.mail },
-  { key: "evaluation_accuracy", label: "Eval Acc",    color: "#1D7A8C", Ic: Icon.flask, suffix: "%" },
-];
-
-function StatsBar({ stats }) {
-  if (!stats) return null;
-  return (
-    <div style={{
-      display: "grid",
-      gridTemplateColumns: "repeat(7, 1fr)",
-      gap: "10px",
-      marginBottom: "22px",
-    }}>
-      {STAT_CFG.map(({ key, label, color, Ic, suffix }) => (
-        <Card key={key} style={{ padding: "14px 16px", textAlign: "center" }}>
-          <div style={{ display: "flex", justifyContent: "center", marginBottom: "6px", color }}>
-            <Ic width={17} height={17} />
-          </div>
-          <div style={{ color, fontSize: "24px", fontWeight: 700, lineHeight: 1 }}>
-            {stats[key] != null && stats[key] !== 0 ? `${stats[key]}${suffix || ""}` : (suffix ? "—" : (stats[key] ?? "—"))}
-          </div>
-          <div style={{ color: T.text3, fontSize: "10px", marginTop: "5px", letterSpacing: ".5px", textTransform: "uppercase" }}>
-            {label}
-          </div>
-        </Card>
-      ))}
-    </div>
-  );
-}
+/* ─── STATS BAR (extracted to ./layout/StatsBar — decomposition phase 2) ─ */
+import { StatsBar } from "./layout/StatsBar";
 
 /* ─── CV UPLOAD ───────────────────────────────────────────────────────── */
 function UploadZone({ onSuccess }) {
@@ -2088,27 +2050,8 @@ function UserMenu({ user, onAddUser, onEditProfile, onLogout, up = false, fullWi
   );
 }
 
-function RoleBadge({ role }) {
-  const cfg = {
-    admin:     { label: "Admin",     color: T.purple, bg: T.purpleLo, border: T.purpleBd, Ic: Icon.shield },
-    recruiter: { label: "Recruiter", color: T.green,  bg: T.greenLo,  border: T.greenBd,  Ic: Icon.user   },
-  };
-  const c = cfg[role] || cfg.recruiter;
-  return (
-    <span style={{
-      display: "inline-flex", alignItems: "center", gap: "4px",
-      background: c.bg, color: c.color,
-      border: `1px solid ${c.border}`,
-      borderRadius: "6px", padding: "3px 8px",
-      fontSize: "10px", fontWeight: 700,
-      letterSpacing: ".5px", textTransform: "uppercase",
-      whiteSpace: "nowrap",
-    }}>
-      <c.Ic width={11} height={11} style={{ flexShrink: 0 }} />
-      {c.label}
-    </span>
-  );
-}
+/* RoleBadge extracted to ./layout/RoleBadge — decomposition phase 2 */
+import { RoleBadge } from "./layout/RoleBadge";
 
 /* ─── REGISTER USER MODAL (admin only) ───────────────────────────────── */
 function RegisterModal({ onClose, onSuccess }) {
@@ -2461,89 +2404,8 @@ function ProfileModal({ user, onClose, onSaved }) {
 
 /* ─── LOGIN PAGE ─────────────────────────────────────────────────────── */
 /* ─── NOTIFICATION BELL ───────────────────────────────────────────────── */
-function NotificationBell() {
-  const { handleLogout } = useAuth();
-  const [open,   setOpen]   = useState(false);
-  const [items,  setItems]  = useState([]);
-  const [unread, setUnread] = useState(0);
-
-  const loadCount = () => api("/notifications/unread-count", {}, handleLogout)
-    .then(d => setUnread(d.unread || 0)).catch(() => {});
-  useEffect(() => {
-    loadCount();
-    const t = setInterval(loadCount, 30000); // poll every 30s
-    return () => clearInterval(t);
-  }, []); // eslint-disable-line
-
-  const toggle = async () => {
-    const willOpen = !open;
-    setOpen(willOpen);
-    if (willOpen) {
-      try {
-        const d = await api("/notifications", {}, handleLogout);
-        setItems(d.items || []);
-        if ((d.unread || 0) > 0) {
-          await api("/notifications/mark-read", { method: "POST" }, handleLogout);
-          setUnread(0);
-        }
-      } catch { /* non-critical */ }
-    }
-  };
-
-  const dotColor = t => t === "shortlisted" ? T.green
-    : t === "interview_scheduled" ? T.amber
-    : t === "cv_uploaded" ? T.accent : T.text3;
-
-  return (
-    <div style={{ position: "relative" }}>
-      <button onClick={toggle} title="Notifications"
-        style={{ position: "relative", background: "none", border: "none", cursor: "pointer",
-          color: T.text2, display: "flex", padding: "4px" }}>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-          strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-          <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-        </svg>
-        {unread > 0 && (
-          <span style={{ position: "absolute", top: 0, right: 0, minWidth: "15px", height: "15px",
-            padding: "0 3px", borderRadius: "8px", background: T.red, color: "#fff", fontSize: "9px",
-            fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", boxSizing: "border-box" }}>
-            {unread > 9 ? "9+" : unread}
-          </span>
-        )}
-      </button>
-      {open && (
-        <>
-          <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 200 }} />
-          <div style={{ position: "absolute", right: 0, top: "34px", width: "320px", maxHeight: "420px",
-            overflowY: "auto", background: T.surface, border: `1px solid ${T.border}`, borderRadius: "12px",
-            boxShadow: "0 12px 40px rgba(0,0,0,.18)", zIndex: 201 }}>
-            <div style={{ padding: "12px 14px", borderBottom: `1px solid ${T.border}`,
-              fontWeight: 700, fontSize: "13px", color: T.text1 }}>Notifications</div>
-            {items.length === 0 ? (
-              <div style={{ padding: "26px", textAlign: "center", color: T.text3, fontSize: "13px" }}>
-                No notifications yet
-              </div>
-            ) : items.map(n => (
-              <div key={n.id} style={{ padding: "11px 14px", borderBottom: `1px solid ${T.border}`,
-                display: "flex", gap: "9px", alignItems: "flex-start",
-                background: n.read ? "transparent" : T.accentLo }}>
-                <span style={{ width: "8px", height: "8px", borderRadius: "50%", marginTop: "5px",
-                  background: dotColor(n.type), flexShrink: 0 }} />
-                <div>
-                  <div style={{ fontSize: "12.5px", color: T.text1, lineHeight: 1.45 }}>{n.message}</div>
-                  <div style={{ fontSize: "10.5px", color: T.text3, marginTop: "2px" }}>
-                    {new Date(n.created_at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
+/* NotificationBell extracted to ./notifications/NotificationBell — phase 2 */
+import { NotificationBell } from "./notifications/NotificationBell";
 
 function LoginPage({ onLogin }) {
   const [username,  setUsername]  = useState("");
@@ -2851,39 +2713,8 @@ function LoginPage({ onLogin }) {
 }
 
 /* ─── SIDEBAR NAV ITEM ────────────────────────────────────────────────── */
-function NavItem({ t, active, expanded, onClick }) {
-  const TabIcon = t.icon;
-  return (
-    <button
-      onClick={onClick}
-      title={expanded ? undefined : t.label}
-      style={{
-        position: "relative",
-        display: "flex", alignItems: "center", gap: "10px",
-        justifyContent: expanded ? "flex-start" : "center",
-        width: "100%",
-        padding: expanded ? "9px 12px" : "9px 0",
-        borderRadius: "8px", border: "none",
-        background: active ? T.accentLo : "transparent",
-        color: active ? T.accent : T.text2,
-        fontSize: "13px", fontWeight: active ? 700 : 500,
-        cursor: "pointer", fontFamily: "inherit",
-        transition: "all .15s", whiteSpace: "nowrap",
-      }}
-      onMouseEnter={e => { if (!active) e.currentTarget.style.background = T.surfaceHi; }}
-      onMouseLeave={e => { if (!active) e.currentTarget.style.background = "transparent"; }}
-    >
-      {active && (
-        <span style={{
-          position: "absolute", left: 0, top: "50%", transform: "translateY(-50%)",
-          width: 3, height: 16, borderRadius: 2, background: T.accent,
-        }} />
-      )}
-      <TabIcon width={16} height={16} style={{ flexShrink: 0 }} />
-      {expanded && <span>{t.label}</span>}
-    </button>
-  );
-}
+/* NavItem extracted to ./layout/NavItem — decomposition phase 2 */
+import { NavItem } from "./layout/NavItem";
 
 /* ─── APP ROOT ────────────────────────────────────────────────────────── */
 export default function App() {

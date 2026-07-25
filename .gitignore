@@ -32,6 +32,7 @@ sample_cvs/
 node_modules/
 frontend/dist/
 frontend/.cache/
+frontend/vite.config.*.timestamp-*.mjs
 *.log
 npm-debug.log*
 
