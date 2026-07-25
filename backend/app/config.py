@@ -90,6 +90,15 @@ class Settings(BaseSettings):
     # auto-run the match. Empty string disables the trigger.
     n8n_cv_webhook_url: str = ""
     apply_url: str = "careers@yourcompany.com"
+    # Public base URL of the deployed frontend. Used to build the candidate
+    # apply link embedded in job announcements: {public_base_url}/apply.html?job=<id>.
+    # For a local demo this is the frontend container's published address; for a
+    # real deployment set it to your public domain so Telegram/LinkedIn readers
+    # can actually reach the apply page.
+    public_base_url: str = "http://localhost:3000"
+    # Contact address shown in every job announcement so candidates who don't
+    # use the apply link still have a way to reach HR.
+    contact_email: str = "sakib.cse.nubtk@gmail.com"
 
     # ── Proxy ──────────────────────────────────────────────────────────────
     # Trust X-Forwarded-For when resolving the client IP for rate limiting.
