@@ -137,7 +137,7 @@ with a coherent system:
 │       ├── types.ts        Shared domain data contracts
 │       └── App.jsx         Application shell (providers + routing)
 ├── n8n-workflows/          Importable automation workflows
-├── Documentation/          Architecture, security, accuracy, diagrams, report
+├── Documentation/          Report, proposal, diagrams, slides, accuracy notes
 ├── docker-compose.yml
 ├── start.bat / stop.bat    Windows convenience scripts
 └── Makefile                Common developer commands
