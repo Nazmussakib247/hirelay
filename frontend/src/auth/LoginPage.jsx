@@ -146,13 +146,15 @@ export function LoginPage({ onLogin }) {
             </div>
           )}
 
-          <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
+          {/* Real <form> so password managers can autofill/save and Enter
+              submits reliably; onSubmit prevents a full-page reload. */}
+          <form onSubmit={e => e.preventDefault()} style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
             {/* Username */}
             <div>
               <FieldLabel>Username or Email</FieldLabel>
               <input
                 type="text"
-                placeholder="admin"
+                placeholder="you@example.com or username"
                 value={username}
                 onChange={e => { setUsername(e.target.value); setErr(null); }}
                 onKeyDown={onKey}
@@ -177,6 +179,7 @@ export function LoginPage({ onLogin }) {
                   style={{ paddingRight: "48px" }}
                 />
                 <button
+                  type="button"
                   onClick={() => setShowPw(p => !p)}
                   tabIndex={-1}
                   style={{
@@ -213,23 +216,7 @@ export function LoginPage({ onLogin }) {
                 Forgot password?
               </button>
             </div>
-          </div>
-
-          {/* Default credentials hint */}
-          <div style={{
-            marginTop: "20px",
-            padding: "12px 14px",
-            background: T.surfaceHi,
-            border: `1px solid ${T.border}`,
-            borderRadius: "8px",
-          }}>
-            <div style={{ color: T.text3, fontSize: "11px", textAlign: "center", lineHeight: 1.6 }}>
-              Default credentials:&nbsp;
-              <span style={{ color: T.accent, fontWeight: 600 }}>admin</span>
-              &nbsp;/&nbsp;
-              <span style={{ color: T.accent, fontWeight: 600 }}>admin123</span>
-            </div>
-          </div>
+          </form>
         </Card>
 
         {/* Footer */}
