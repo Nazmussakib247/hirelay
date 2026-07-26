@@ -1,7 +1,14 @@
 # ── Environment & Secrets ──────────────────────────────────────
+# Ignore EVERY .env variant so real credentials never reach GitHub, but keep
+# the committed template (.env.example) so anyone who clones can copy it and run.
 .env
-*.env.local
-*.env.production
+.env.*
+!.env.example
+# Never commit private keys / certificates.
+*.pem
+*.key
+*.p12
+secrets.json
 
 # ── Python ─────────────────────────────────────────────────────
 __pycache__/
@@ -45,6 +52,8 @@ n8n_data/
 .idea/
 .DS_Store
 Thumbs.db
+desktop.ini
+~$*
 *.swp
 *.swo
 
