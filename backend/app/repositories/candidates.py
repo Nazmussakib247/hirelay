@@ -31,6 +31,38 @@ class CandidateRepository:
         )
         return str(new_id)
 
+    async def create_public(self, data: dict, applied_job_id: str) -> str:
+        """Create a candidate who self-applied via the public link.
+
+        There is no authenticated uploader, so ``uploaded_by`` is left NULL; the
+        job they chose is recorded in ``applied_job_id`` and ``source='public'``.
+        """
+        new_id = await self._conn.fetchval(
+            "INSERT INTO candidates "
+            "(name, email, phone, skills, experience_years, education, raw_text, "
+            "cv_filename, parse_confidence, applied_job_id, source) "
+            "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'public') RETURNING id",
+            data["name"],
+            data["email"],
+            data["phone"],
+            data["skills"],
+            data["experience_years"],
+            data["education"],
+            data["raw_text"],
+            data["cv_filename"],
+            data.get("parse_confidence"),
+            uuid.UUID(applied_job_id),
+        )
+        return str(new_id)
+
+    async def set_applied_job(self, candidate_id: str, job_id: str) -> None:
+        """Tag an existing candidate as having applied to ``job_id`` publicly."""
+        await self._conn.execute(
+            "UPDATE candidates SET applied_job_id=$1, source='public' WHERE id=$2",
+            uuid.UUID(job_id),
+            uuid.UUID(candidate_id),
+        )
+
     async def get(self, candidate_id: str) -> asyncpg.Record | None:
         return await self._conn.fetchrow(
             "SELECT * FROM candidates WHERE id = $1", uuid.UUID(candidate_id)

@@ -174,9 +174,30 @@ export function JobsTab({ jobs, onRefresh }) {
   const [editing, setEditing] = useState(null); // job id whose skills are being edited
   const [customMsg, setCustomMsg] = useState(false); // show the custom-message box
   const [customEmails, setCustomEmails] = useState(false); // show the email-template boxes
-  const { handleLogout } = useAuth();
+  const { handleLogout, isAdmin } = useAuth();
+  const [jobBusy, setJobBusy] = useState(null); // job id with a status/delete action in flight
 
   const setF = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
+
+  // Admin: pause (close) / reopen (activate) / delete a job. A closed job
+  // disappears from the public apply page and is skipped by new posts.
+  const setJobStatus = async (jobId, status) => {
+    setJobBusy(jobId);
+    try {
+      await api(`/jobs/${jobId}/status`, { method: "PATCH", body: JSON.stringify({ status }) }, handleLogout);
+      onRefresh?.();
+    } catch (e) { alert(`Could not update job: ${e.message}`); }
+    finally { setJobBusy(null); }
+  };
+  const deleteJob = async (jobId, title) => {
+    if (!window.confirm(`Delete "${title}"? This removes the job and unlinks its candidates. This cannot be undone.`)) return;
+    setJobBusy(jobId);
+    try {
+      await api(`/jobs/${jobId}`, { method: "DELETE" }, handleLogout);
+      onRefresh?.();
+    } catch (e) { alert(`Could not delete job: ${e.message}`); }
+    finally { setJobBusy(null); }
+  };
 
   const submit = async () => {
     if (!form.title.trim()) return;
@@ -367,14 +388,37 @@ export function JobsTab({ jobs, onRefresh }) {
                   <Card key={j.id} style={{ padding: "16px 20px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "10px" }}>
                       <div style={{ fontWeight: 700, fontSize: "14px", marginBottom: "8px" }}>{j.title}</div>
-                      <Btn size="sm" variant={isEditing ? "secondary" : "ghost"}
-                        onClick={() => setEditing(isEditing ? null : j.id)}>
-                        {isEditing ? "Close" : "Edit skills"}
-                      </Btn>
+                      <div style={{ display: "flex", gap: "6px", flexShrink: 0, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                        <Btn size="sm" variant={isEditing ? "secondary" : "ghost"}
+                          onClick={() => setEditing(isEditing ? null : j.id)}>
+                          {isEditing ? "Close" : "Edit skills"}
+                        </Btn>
+                        {isAdmin && (j.status === "active" ? (
+                          <Btn size="sm" variant="ghost" disabled={jobBusy === j.id}
+                            onClick={() => setJobStatus(j.id, "closed")}
+                            title="Pause — hide from the apply page & new posts">
+                            {jobBusy === j.id ? <Spinner size={11} /> : "⏸ Pause"}
+                          </Btn>
+                        ) : (
+                          <Btn size="sm" variant="success" disabled={jobBusy === j.id}
+                            onClick={() => setJobStatus(j.id, "active")}
+                            title="Reopen — accept applications again">
+                            {jobBusy === j.id ? <Spinner size={11} /> : "▶ Reopen"}
+                          </Btn>
+                        ))}
+                        {isAdmin && (
+                          <Btn size="sm" variant="danger" disabled={jobBusy === j.id}
+                            onClick={() => deleteJob(j.id, j.title)} title="Delete job">
+                            {jobBusy === j.id ? <Spinner size={11} color={T.red} /> : <Icon.trash width={12} height={12} />}
+                          </Btn>
+                        )}
+                      </div>
                     </div>
                     <div style={{ display: "flex", gap: "6px", marginBottom: "8px", flexWrap: "wrap" }}>
                       <Badge label={`${j.min_experience || 0}+ yrs`} color={T.text2} bg={T.surfaceHi} border={T.border} />
-                      <Badge label={j.status || "active"} color={T.green} bg={T.greenLo} border={T.greenBd} />
+                      {j.status === "active"
+                        ? <Badge label="active" color={T.green} bg={T.greenLo} border={T.greenBd} />
+                        : <Badge label={j.status || "closed"} color={T.amber} bg={T.amberLo} border={T.amberBd} />}
                     </div>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginBottom: j.description ? "8px" : 0 }}>
                       {weighted.map(s => <WeightedSkillPill key={s.name} name={s.name} weight={s.weight} />)}

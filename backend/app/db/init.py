@@ -83,6 +83,12 @@ CREATE TABLE IF NOT EXISTS candidates (
 ALTER TABLE candidates ADD COLUMN IF NOT EXISTS notes TEXT;
 -- Parser confidence 0-100 (how completely the CV was extracted).
 ALTER TABLE candidates ADD COLUMN IF NOT EXISTS parse_confidence INTEGER;
+-- The job a candidate applied to via the public apply link (kept even after a
+-- match run overwrites matched_job_id). NULLed automatically if the job is deleted.
+ALTER TABLE candidates ADD COLUMN IF NOT EXISTS applied_job_id UUID REFERENCES jobs(id) ON DELETE SET NULL;
+-- Where the candidate entered the system: 'upload' (HR uploaded) or 'public'
+-- (self-applied through the public link). Lets HR triage self-applications.
+ALTER TABLE candidates ADD COLUMN IF NOT EXISTS source VARCHAR(20) DEFAULT 'upload';
 
 -- In-app notifications (team-wide feed of recruiting events).
 CREATE TABLE IF NOT EXISTS notifications (

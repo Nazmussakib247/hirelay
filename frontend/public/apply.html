@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Apply — Hirelay</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root{
+      --bg:#F4F6FA; --surface:#FFFFFF; --surfaceHi:#EEF1F7; --border:#E1E6EF; --borderHi:#C9D2E0;
+      --accent:#1E4C8A; --accentLo:#E7EEF8; --accentBd:#BFD3EC;
+      --green:#1F8A5F; --greenLo:#E6F5EE; --greenBd:#BEE3D0;
+      --red:#C33C3C; --redLo:#FBEAEA; --redBd:#F0C6C6;
+      --text1:#16233A; --text2:#5B6B84; --text3:#93A1B7;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{background:radial-gradient(1100px 560px at 50% -12%, var(--accentLo) 0%, var(--bg) 55%);
+      font-family:'Inter',system-ui,sans-serif;color:var(--text1);min-height:100vh;
+      -webkit-font-smoothing:antialiased;padding:32px 18px}
+    .wrap{max-width:520px;margin:0 auto}
+    .brand{display:flex;align-items:center;gap:11px;justify-content:center;margin-bottom:22px}
+    .logo{width:36px;height:36px;border-radius:10px;background:var(--accent);position:relative;flex-shrink:0}
+    .logo::before,.logo::after{content:"";position:absolute;top:7px;width:4px;height:22px;background:var(--bg);border-radius:2px}
+    .logo::before{left:7px}.logo::after{right:7px}
+    .logo i{position:absolute;top:16px;left:7px;width:22px;height:4px;background:var(--bg);border-radius:2px}
+    .brand h1{font-size:20px;font-weight:800;letter-spacing:-.3px}
+    .brand span{display:block;font-size:11px;color:var(--text3);font-weight:500;margin-top:1px}
+    .card{background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--accent);
+      border-radius:16px;padding:28px;box-shadow:0 12px 32px rgba(22,35,58,.08),0 2px 6px rgba(22,35,58,.05)}
+    .lead{color:var(--text2);font-size:13px;line-height:1.55;margin-bottom:20px}
+    label{display:block;color:var(--text3);font-size:11px;font-weight:600;letter-spacing:.6px;
+      text-transform:uppercase;margin:0 0 6px}
+    .field{margin-bottom:16px}
+    input,select{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:9px;
+      padding:11px 13px;color:var(--text1);font-size:14px;font-family:inherit;outline:none;
+      transition:border-color .15s,box-shadow .15s}
+    input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(30,76,138,.14)}
+    .drop{border:2px dashed var(--border);border-radius:11px;padding:24px;text-align:center;cursor:pointer;
+      background:var(--surfaceHi);transition:all .18s;color:var(--text3);font-size:13px}
+    .drop:hover{border-color:var(--accent);background:var(--accentLo);color:var(--accent)}
+    .drop.has{border-color:var(--green);background:var(--greenLo);color:var(--green);font-weight:600}
+    button.submit{width:100%;margin-top:6px;background:var(--accent);color:#fff;border:none;border-radius:9px;
+      padding:13px;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;transition:opacity .15s}
+    button.submit:disabled{opacity:.55;cursor:not-allowed}
+    .alert{border-radius:9px;padding:12px 14px;font-size:13px;line-height:1.5;margin-bottom:16px}
+    .alert.err{background:var(--redLo);border:1px solid var(--redBd);color:#9A2E2E}
+    .alert.ok{background:var(--greenLo);border:1px solid var(--greenBd);color:#166B49}
+    .hint{font-size:11px;color:var(--text3);margin-top:5px}
+    .foot{text-align:center;color:var(--text3);font-size:11px;margin-top:18px}
+    .success-box{text-align:center;padding:20px 0}
+    .success-box .tick{width:52px;height:52px;border-radius:50%;background:var(--greenLo);color:var(--green);
+      display:flex;align-items:center;justify-content:center;margin:0 auto 14px;font-size:26px;font-weight:700}
+    .success-box h2{font-size:17px;color:var(--green);margin-bottom:6px}
+    .success-box p{color:var(--text2);font-size:13px;line-height:1.55}
+    .success-box button{margin-top:18px;background:transparent;border:1px solid var(--border);
+      color:var(--text2);border-radius:9px;padding:9px 18px;font-family:inherit;font-size:13px;cursor:pointer}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="brand">
+      <div class="logo"><i></i></div>
+      <div><h1>Hirelay</h1><span>Careers · Apply for a role</span></div>
+    </div>
+
+    <div class="card" id="card">
+      <p class="lead">Choose the position you're applying for and upload your CV.
+        Our team will review it and get back to you.</p>
+
+      <div id="msg"></div>
+
+      <form id="form">
+        <div class="field">
+          <label for="job">Position *</label>
+          <select id="job" name="job_id" required>
+            <option value="">Loading open positions…</option>
+          </select>
+          <div class="hint" id="jobhint"></div>
+        </div>
+
+        <div class="field">
+          <label for="name">Full name *</label>
+          <input id="name" name="name" type="text" placeholder="e.g. Nazmus Sakib" required />
+        </div>
+
+        <div class="field">
+          <label for="email">Email *</label>
+          <input id="email" name="email" type="email" placeholder="you@example.com" required />
+        </div>
+
+        <div class="field">
+          <label for="phone">Phone</label>
+          <input id="phone" name="phone" type="text" placeholder="+880 1XXX-XXXXXX" />
+        </div>
+
+        <div class="field">
+          <label>CV / Resume *</label>
+          <div class="drop" id="drop">Click to select your CV (PDF · DOCX · DOC)</div>
+          <input id="file" name="file" type="file" accept=".pdf,.docx,.doc" style="display:none" required />
+        </div>
+
+        <button class="submit" id="btn" type="submit">Submit Application</button>
+      </form>
+    </div>
+
+    <div class="foot">© 2026 Hirelay. Your details are used only for this application.</div>
+  </div>
+
+  <script>
+    // Same-origin: nginx proxies /api/ to the FastAPI backend.
+    var API = "/api";
+    var jobSel = document.getElementById("job");
+    var hint = document.getElementById("jobhint");
+    var drop = document.getElementById("drop");
+    var fileInput = document.getElementById("file");
+    var form = document.getElementById("form");
+    var btn = document.getElementById("btn");
+    var msg = document.getElementById("msg");
+    var card = document.getElementById("card");
+    var jobsById = {};
+
+    function qparam(k){ return new URLSearchParams(location.search).get(k); }
+    function showMsg(type, text){ msg.innerHTML = '<div class="alert '+type+'">'+text+'</div>'; }
+
+    // Load open jobs
+    fetch(API + "/public/jobs")
+      .then(function(r){ return r.ok ? r.json() : Promise.reject(); })
+      .then(function(jobs){
+        if(!jobs.length){
+          jobSel.innerHTML = '<option value="">No open positions right now</option>';
+          btn.disabled = true; return;
+        }
+        jobsById = {};
+        jobSel.innerHTML = '<option value="">Select a position…</option>';
+        jobs.forEach(function(j){
+          jobsById[j.id] = j;
+          var o = document.createElement("option");
+          o.value = j.id;
+          o.textContent = j.title + (j.location ? " — " + j.location : "");
+          jobSel.appendChild(o);
+        });
+        var pre = qparam("job");
+        if(pre && jobsById[pre]){ jobSel.value = pre; updateHint(); }
+      })
+      .catch(function(){
+        jobSel.innerHTML = '<option value="">Could not load positions</option>';
+        showMsg("err", "Couldn't load open positions. Please refresh and try again.");
+      });
+
+    function updateHint(){
+      var j = jobsById[jobSel.value];
+      hint.textContent = j && j.min_experience ? (j.min_experience + "+ years experience preferred") : "";
+    }
+    jobSel.addEventListener("change", updateHint);
+
+    // File picker
+    drop.addEventListener("click", function(){ fileInput.click(); });
+    fileInput.addEventListener("change", function(){
+      if(fileInput.files[0]){
+        drop.classList.add("has");
+        drop.textContent = "✓ " + fileInput.files[0].name;
+      }
+    });
+
+    // Submit
+    form.addEventListener("submit", function(e){
+      e.preventDefault();
+      if(!jobSel.value){ showMsg("err", "Please select a position."); return; }
+      if(!fileInput.files[0]){ showMsg("err", "Please attach your CV."); return; }
+      msg.innerHTML = "";
+      btn.disabled = true; btn.textContent = "Submitting…";
+      var fd = new FormData();
+      fd.append("job_id", jobSel.value);
+      fd.append("name", document.getElementById("name").value.trim());
+      fd.append("email", document.getElementById("email").value.trim());
+      fd.append("phone", document.getElementById("phone").value.trim());
+      fd.append("file", fileInput.files[0]);
+
+      fetch(API + "/public/apply", { method: "POST", body: fd })
+        .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
+        .then(function(res){
+          if(!res.ok){
+            var m = (res.d && res.d.error && res.d.error.message) || (res.d && res.d.detail) || "Submission failed. Please try again.";
+            throw new Error(m);
+          }
+          card.innerHTML =
+            '<div class="success-box">' +
+            '<div class="tick">✓</div>' +
+            '<h2>Application received!</h2>' +
+            '<p>' + ((res.d && res.d.message) || "Thank you — our team will review your CV.") + '</p>' +
+            '<button onclick="location.reload()">Submit another application</button>' +
+            '</div>';
+        })
+        .catch(function(err){
+          showMsg("err", err.message || "Submission failed. Please try again.");
+          btn.disabled = false; btn.textContent = "Submit Application";
+        });
+    });
+  </script>
+</body>
+</html>

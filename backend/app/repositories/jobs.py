@@ -64,6 +64,12 @@ class JobRepository:
     async def update_status(self, job_id: str, status: str) -> None:
         await self._conn.execute("UPDATE jobs SET status=$1 WHERE id=$2", status, uuid.UUID(job_id))
 
+    async def delete(self, job_id: str) -> None:
+        """Delete a job. Every FK into ``jobs`` declares an ON DELETE action
+        (candidates.matched/applied_job_id → SET NULL, postings/results →
+        CASCADE), so a single DELETE cleans up safely without orphaning rows."""
+        await self._conn.execute("DELETE FROM jobs WHERE id=$1", uuid.UUID(job_id))
+
     async def record_posting(self, job_id: str, platforms: list[str], results: dict) -> None:
         await self._conn.execute(
             "INSERT INTO job_postings (job_id, platforms_attempted, results) VALUES ($1,$2,$3)",

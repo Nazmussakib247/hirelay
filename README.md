@@ -9,7 +9,7 @@ handled from a single dashboard, with an n8n layer for hands-off automation.
 Built as a CSE4100 Field Work project with a deliberate emphasis on honest
 engineering — the matching accuracy is reported with a proper held-out
 evaluation protocol rather than an inflated in-sample number (see
-`Documentation/docs/ACCURACY.md`).
+`Documentation/accuracy/ACCURACY.md`).
 
 ---
 
@@ -31,6 +31,40 @@ with a coherent system:
   jobs can be advertised to several platforms at once.
 - **Insight** — an analytics dashboard and a dedicated evaluation suite make the
   system's behaviour measurable and defensible.
+
+---
+
+## Screenshots
+
+<table>
+  <tr>
+    <td width="50%"><img src="Documentation/screenshots/01_login.png" alt="Login"/><br/><sub><b>Secure login</b></sub></td>
+    <td width="50%"><img src="Documentation/screenshots/02_cv_upload.png" alt="CV upload"/><br/><sub><b>CV upload with automatic parsing</b></sub></td>
+  </tr>
+  <tr>
+    <td><img src="Documentation/screenshots/03_ai_match.png" alt="AI match"/><br/><sub><b>AI matching run</b></sub></td>
+    <td><img src="Documentation/screenshots/04_candidates_list.png" alt="Candidates"/><br/><sub><b>Candidate management</b></sub></td>
+  </tr>
+  <tr>
+    <td><img src="Documentation/screenshots/05_candidate_detail.png" alt="Candidate detail"/><br/><sub><b>Candidate detail — parse confidence &amp; AI summary</b></sub></td>
+    <td><img src="Documentation/screenshots/06_evaluation_ablation.png" alt="Evaluation"/><br/><sub><b>Evaluation suite — ablation study</b></sub></td>
+  </tr>
+  <tr>
+    <td><img src="Documentation/screenshots/07_job_posting.png" alt="Job posting"/><br/><sub><b>Multi-platform job posting</b></sub></td>
+    <td><img src="Documentation/screenshots/08_interview_detail.png" alt="Interview"/><br/><sub><b>Interview scheduling &amp; feedback</b></sub></td>
+  </tr>
+  <tr>
+    <td><img src="Documentation/screenshots/09_interview_calendar.png" alt="Calendar"/><br/><sub><b>Interview calendar</b></sub></td>
+    <td><img src="Documentation/screenshots/10_public_apply.png" alt="Public apply"/><br/><sub><b>Public application page</b></sub></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><img src="Documentation/screenshots/11_n8n_workflow.png" alt="n8n workflow" width="88%"/><br/><sub><b>n8n workflow automating the recruitment pipeline</b></sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="Documentation/screenshots/12_telegram_post.png" alt="Telegram post" width="260"/><br/><sub><b>Automated Telegram job post</b></sub></td>
+    <td align="center"><img src="Documentation/screenshots/13_interview_email.png" alt="Interview email" width="230"/><br/><sub><b>Interview invitation email</b></sub></td>
+  </tr>
+</table>
 
 ---
 
@@ -136,8 +170,14 @@ with a coherent system:
 │       ├── auth/           Auth context, token store, login/profile screens
 │       ├── types.ts        Shared domain data contracts
 │       └── App.jsx         Application shell (providers + routing)
-├── n8n-workflows/          Importable automation workflows
-├── Documentation/          Report, proposal, diagrams, slides, accuracy notes
+├── n8n-workflows/          Importable automation workflow + import scripts
+├── Documentation/
+│   ├── project report/     Field-work report (.docx)
+│   ├── proposal/           Project proposal (.pdf)
+│   ├── accuracy/           ACCURACY.md — evaluation methodology & limitations
+│   ├── er diagram/         Entity-relationship diagram
+│   ├── use case diagram/   Use-case diagram
+│   └── screenshots/        Application screenshots
 ├── docker-compose.yml
 ├── start.bat / stop.bat    Windows convenience scripts
 └── Makefile                Common developer commands
@@ -248,7 +288,7 @@ configuration). For a production bundle, run `npm run build` and serve `dist/`.
 ### 4. n8n (optional)
 
 The automation layer is optional for local development. To use it, run an n8n
-instance and import the workflows from `n8n-workflows/`.
+instance and import the workflow from `n8n-workflows/`.
 
 ---
 
@@ -279,7 +319,7 @@ interval. The bundled benchmark is intentionally documented as a
 near-linearly-separable synthetic set, so its high accuracy demonstrates a
 correctly wired pipeline rather than a generalisation guarantee. The honest
 limitations, the ablation study, and the recommended next steps are written up
-in `Documentation/docs/ACCURACY.md`.
+in `Documentation/accuracy/ACCURACY.md`.
 
 ---
 
@@ -306,10 +346,13 @@ CSE Field Work (CSE4100)
 
 - GitHub: https://github.com/Nazmussakib247
 - LinkedIn: https://www.linkedin.com/in/nazmussakib247/
-- Contact: sakib.cse.nubtk@gmail.com
+- Contact: nazmussakib.cse.nubt@gmail.com
 
 ---
 
 ## License
 
-See the `LICENSE` file in the repository root.
+This project is released under a **proprietary, all-rights-reserved** license.
+Copying, use, modification, and redistribution are prohibited without the prior
+written permission of the author. See the [`LICENSE`](LICENSE) file for the full
+terms, and contact the author to request permission.

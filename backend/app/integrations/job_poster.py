@@ -45,6 +45,7 @@ def job_to_text(job: dict, max_skills: int = 6) -> str:
     exp = job.get("min_experience", 0)
     location = (job.get("location") or "").strip() or "Remote / Dhaka, Bangladesh"
     apply_url = job.get("apply_url", "contact@yourcompany.com")
+    contact_email = (job.get("contact_email") or "").strip()
 
     custom = (job.get("post_message") or "").strip()
     if custom:
@@ -55,6 +56,7 @@ def job_to_text(job: dict, max_skills: int = 6) -> str:
             "skills": skills or "See description",
             "description": job.get("description") or "",
             "apply_url": apply_url,
+            "contact_email": contact_email,
         }
         try:
             return custom.format(**fields)
@@ -62,13 +64,16 @@ def job_to_text(job: dict, max_skills: int = 6) -> str:
             # Stray/unknown braces in the custom text — post it as written.
             return custom
 
+    # Contact line is only added when a contact email is configured.
+    contact_line = f"📧 Contact: {contact_email}\n" if contact_email else ""
     return (
         f"📢 We're Hiring: {job['title']}\n\n"
         f"📍 Location: {location}\n"
         f"💼 Experience: {exp}+ years\n"
         f"🛠️ Skills: {skills or 'See description'}\n\n"
         f"{(job.get('description') or '')[:300]}\n\n"
-        f"👉 Apply Now: {apply_url}\n\n"
+        f"👉 Apply Now: {apply_url}\n"
+        f"{contact_line}\n"
         f"#hiring #{job['title'].replace(' ', '').lower()} #jobs #career #bangladesh"
     )
 

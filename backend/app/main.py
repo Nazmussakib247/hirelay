@@ -91,6 +91,7 @@ def _register_routers(app: FastAPI) -> None:
         jobs,
         matching,
         notifications,
+        public,
     )
 
     for module in (
@@ -104,6 +105,7 @@ def _register_routers(app: FastAPI) -> None:
         evaluation,
         analytics,
         notifications,
+        public,
     ):
         app.include_router(module.router)
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import uuid
 
 import asyncpg
@@ -21,6 +22,7 @@ from app.repositories.notifications import notify
 from app.services import cv_parser
 from app.services.cv_parser_ai import parse_cv_hybrid
 from app.services.email import build_rejection_email, send_email
+from app.services.matching import score_candidate
 
 _CONTENT_TYPES = {
     ".pdf": "application/pdf",
@@ -114,6 +116,117 @@ class CandidateService:
             parse_confidence=parsed.get("parse_confidence"),
             extracted=ExtractedFields(**{k: parsed[k] for k in ExtractedFields.model_fields}),
         )
+
+    async def apply_public(
+        self,
+        job_id: str,
+        filename: str,
+        data: bytes,
+        name: str | None = None,
+        email: str | None = None,
+        phone: str | None = None,
+    ) -> dict:
+        """Handle a public self-application: a candidate picked an open job and
+        submitted their CV through the public link.
+
+        The CV is parsed and the candidate is created as ``pending`` (never
+        auto-shortlisted or emailed). We score them against the chosen job
+        immediately so HR sees a number, but the shortlist/reject decision and
+        any interview email wait for HR's confirmation in the Candidates tab.
+        Scoring is best-effort — if the AI/scoring step fails, the applicant is
+        still recorded and HR can run the match later.
+        """
+        try:
+            uuid.UUID(job_id)
+        except ValueError as exc:
+            raise ValidationError("Invalid job id") from exc
+
+        job_row = await self._jobs.get(job_id)
+        if job_row is None:
+            raise NotFoundError("Job not found")
+        if job_row["status"] != "active":
+            raise ValidationError("This job is no longer accepting applications")
+
+        self._validate_upload(filename, data)
+        text = cv_parser.extract_text(filename, data)
+        parsed = await parse_cv_hybrid(text, extra_keywords=await self._job_keywords())
+        parsed["cv_filename"] = filename
+        parsed.setdefault("raw_text", text)
+        # Applicant-supplied contact details take precedence over parsed ones.
+        if name and name.strip():
+            parsed["name"] = name.strip()
+        if email and email.strip():
+            parsed["email"] = email.strip().lower()
+        if phone and phone.strip():
+            parsed["phone"] = phone.strip()
+
+        # Dedupe by email: a repeat application refreshes the existing record
+        # rather than creating a duplicate candidate.
+        candidate_id: str
+        existing_id = (
+            await self._candidates.find_id_by_email(parsed["email"])
+            if parsed.get("email")
+            else None
+        )
+        if existing_id:
+            await self._candidates.clear_match_data(existing_id)
+            await self._candidates.update_from_cv(existing_id, parsed)
+            await self._candidates.set_applied_job(existing_id, job_id)
+            candidate_id = existing_id
+        else:
+            candidate_id = await self._candidates.create_public(parsed, job_id)
+        await self._cv_files.store(candidate_id, filename, data, _content_type_for(filename))
+
+        # Inline score against the applied job — best effort, status stays pending.
+        await self._score_against_job(candidate_id, parsed, job_row, text)
+
+        await notify(
+            self._conn,
+            "cv_uploaded",
+            f"New application for {job_row['title']}: {parsed.get('name') or 'Unknown candidate'}",
+        )
+        return {
+            "success": True,
+            "message": "Application received — thank you! Our team will review your CV.",
+            "candidate_id": candidate_id,
+        }
+
+    async def _score_against_job(
+        self, candidate_id: str, parsed: dict, job_row: asyncpg.Record, text: str
+    ) -> None:
+        """Score a candidate against one job and store the result as pending.
+
+        Wrapped so a scoring/network failure never blocks the application — the
+        candidate remains a pending applicant HR can match manually later.
+        """
+        try:
+            raw_weights = job_row["skill_weights"]
+            if isinstance(raw_weights, str) and raw_weights:
+                try:
+                    raw_weights = json.loads(raw_weights)
+                except json.JSONDecodeError:
+                    raw_weights = {}
+            weights = (
+                {k: float(v) for k, v in raw_weights.items()}
+                if isinstance(raw_weights, dict) and raw_weights
+                else None
+            )
+            breakdown = await score_candidate(
+                candidate_skills=parsed.get("skills") or [],
+                candidate_experience=parsed.get("experience_years") or 0,
+                candidate_text=parsed.get("raw_text") or text,
+                required_skills=list(job_row["required_skills"] or []),
+                min_experience=job_row["min_experience"] or 0,
+                job_title=job_row["title"] or "",
+                job_description=job_row["description"] or "",
+                skill_weights=weights,
+            )
+            # status stays 'pending' — HR confirms shortlist/reject afterwards.
+            await self._candidates.set_match_result(
+                candidate_id, "pending", breakdown.final_score, str(job_row["id"]), breakdown.ai_summary
+            )
+        except Exception:  # noqa: BLE001 - scoring is an enhancement, not a gate
+            return
 
     async def get_cv_file(self, candidate_id: str) -> dict:
         """Return the original uploaded CV document for download."""

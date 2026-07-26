@@ -59,6 +59,13 @@ async def update_job_status(
     return await JobService(conn).update_status(job_id, payload.status, user)
 
 
+@router.delete("/jobs/{job_id}")
+async def delete_job(job_id: str, conn: ConnDep, user: AdminUserDep) -> dict:
+    """Delete a job (admin only). Related candidates are detached (matched/
+    applied job set to NULL); postings and match results cascade away."""
+    return await JobService(conn).delete(job_id, user)
+
+
 @router.post("/jobs/{job_id}/post")
 async def post_job(job_id: str, conn: ConnDep, _: CurrentUserDep) -> dict:
     return await JobService(conn).post_to_platforms(job_id)

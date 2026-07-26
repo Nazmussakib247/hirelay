@@ -84,6 +84,15 @@ class JobService:
             job_id=job_id, previous_status=row["status"], new_status=new_status
         )
 
+    async def delete(self, job_id: str, user: CurrentUser) -> dict:
+        row = await self._jobs.get(job_id)
+        if row is None:
+            raise NotFoundError("Job not found")
+        if not user.is_admin and str(row["created_by"]) != user.id:
+            raise PermissionError("You can only delete jobs you created")
+        await self._jobs.delete(job_id)
+        return {"success": True, "deleted_job_id": job_id}
+
     async def post_to_platforms(self, job_id: str) -> dict:
         row = await self._jobs.get(job_id)
         if row is None:
@@ -92,7 +101,11 @@ class JobService:
         job["id"] = str(job["id"])
         if job.get("created_by"):
             job["created_by"] = str(job["created_by"])
-        job["apply_url"] = get_settings().apply_url
+        settings = get_settings()
+        # The apply link points candidates at the public apply page with this
+        # job pre-selected; contact_email is the human fallback shown in the post.
+        job["apply_url"] = f"{settings.public_base_url.rstrip('/')}/apply.html?job={job['id']}"
+        job["contact_email"] = settings.contact_email
         result = await post_job_to_all_platforms(job)
         await self._jobs.record_posting(job_id, list(result["results"].keys()), result["results"])
         return {"job_id": job_id, "job_title": row["title"], "posting": result}
