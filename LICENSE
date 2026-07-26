@@ -1,21 +1,47 @@
-MIT License
+PROPRIETARY SOFTWARE LICENSE — ALL RIGHTS RESERVED
 
-Copyright (c) 2026 Nazmus Sakib
+Copyright (c) 2026 Nazmus Sakib. All rights reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+This software, together with its source code, documentation, designs, diagrams,
+and all associated materials (collectively, the "Software"), is the exclusive
+property of Nazmus Sakib (the "Author") and is protected by copyright and other
+intellectual-property laws.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+1. NO PERMISSION IS GRANTED.
+   No license, right, or permission of any kind is granted by this file. Except
+   as expressly authorized in writing by the Author, you may NOT, in whole or in
+   part:
+     (a) copy, clone, reproduce, or duplicate the Software;
+     (b) use, run, deploy, or execute the Software for any purpose;
+     (c) modify, adapt, translate, or create derivative works of the Software;
+     (d) distribute, publish, sublicense, sell, rent, lease, or otherwise make
+         the Software available to any third party;
+     (e) reverse engineer, or reuse any portion of the code, structure, or
+         design in another project.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+2. COPYING IS STRICTLY PROHIBITED.
+   Unauthorized copying or use of this Software, via any medium, is strictly
+   prohibited and may result in civil and/or criminal liability.
+
+3. PERMISSION BY CONTACT ONLY.
+   Any use of the Software requires the prior express written permission of the
+   Author. To request permission, you must contact the Author directly:
+
+       Nazmus Sakib
+       Email: sakib.cse.nubtk@gmail.com
+
+   Only a written grant signed or sent by the Author constitutes valid
+   permission. Silence or lack of response does not imply permission.
+
+4. NO WARRANTY.
+   The Software is provided "AS IS", without warranty of any kind, express or
+   implied, including but not limited to the warranties of merchantability,
+   fitness for a particular purpose, and non-infringement. In no event shall the
+   Author be liable for any claim, damages, or other liability arising from or
+   in connection with the Software or its use.
+
+5. RESERVATION OF RIGHTS.
+   All rights not expressly granted by the Author in writing are reserved.
+
+By accessing, viewing, or possessing any part of the Software, you acknowledge
+that you have read and agree to the terms above.
