@@ -356,6 +356,3 @@ This project is released under a **proprietary, all-rights-reserved** license.
 Copying, use, modification, and redistribution are prohibited without the prior
 written permission of the author. See the [`LICENSE`](LICENSE) file for the full
 terms, and contact the author to request permission.
-#   h i r e l a y  
- #   h i r e l a y  
- 
