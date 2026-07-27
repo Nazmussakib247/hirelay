@@ -15,14 +15,15 @@ class JobRepository:
     async def create(self, data: dict, created_by: str) -> str:
         new_id = await self._conn.fetchval(
             "INSERT INTO jobs (title, description, required_skills, skill_weights, "
-            "min_experience, location, post_message, interview_message, "
-            "rejection_message, created_by) "
-            "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id",
+            "min_experience, match_threshold, location, post_message, "
+            "interview_message, rejection_message, created_by) "
+            "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id",
             data["title"],
             data.get("description"),
             data.get("required_skills", []),
             json.dumps(data.get("skill_weights") or {}),
             data.get("min_experience", 0),
+            data.get("match_threshold"),
             (data.get("location") or None),
             (data.get("post_message") or None),
             (data.get("interview_message") or None),
@@ -32,14 +33,30 @@ class JobRepository:
         return str(new_id)
 
     async def update_skill_weights(
-        self, job_id: str, required_skills: list[str], skill_weights: dict
+        self,
+        job_id: str,
+        required_skills: list[str],
+        skill_weights: dict,
+        match_threshold: int | None = None,
     ) -> None:
-        await self._conn.execute(
-            "UPDATE jobs SET required_skills=$1, skill_weights=$2 WHERE id=$3",
-            required_skills,
-            json.dumps(skill_weights or {}),
-            uuid.UUID(job_id),
-        )
+        # ``match_threshold=None`` leaves the existing cutoff untouched; pass an
+        # explicit 0-100 value to change it for this job only.
+        if match_threshold is None:
+            await self._conn.execute(
+                "UPDATE jobs SET required_skills=$1, skill_weights=$2 WHERE id=$3",
+                required_skills,
+                json.dumps(skill_weights or {}),
+                uuid.UUID(job_id),
+            )
+        else:
+            await self._conn.execute(
+                "UPDATE jobs SET required_skills=$1, skill_weights=$2, "
+                "match_threshold=$3 WHERE id=$4",
+                required_skills,
+                json.dumps(skill_weights or {}),
+                match_threshold,
+                uuid.UUID(job_id),
+            )
 
     async def all_skill_keywords(self) -> list[str]:
         """Distinct skill keywords across all non-closed jobs.

@@ -63,12 +63,21 @@ class JobService:
         if not user.is_admin and str(row["created_by"]) != user.id:
             raise PermissionError("You can only update jobs you created")
         await self._jobs.update_skill_weights(
-            job_id, payload.required_skills, payload.skill_weights
+            job_id,
+            payload.required_skills,
+            payload.skill_weights,
+            payload.match_threshold,
+        )
+        effective = (
+            payload.match_threshold
+            if payload.match_threshold is not None
+            else row["match_threshold"]
         )
         return JobSkillsUpdateResponse(
             job_id=job_id,
             required_skills=payload.required_skills,
             skill_weights=payload.skill_weights,
+            match_threshold=effective,
         )
 
     async def update_status(

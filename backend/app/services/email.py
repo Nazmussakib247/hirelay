@@ -17,6 +17,7 @@ from email.utils import formataddr
 
 from app.config import get_settings
 from app.core.logging import get_logger
+from app.services.templates import get_template
 
 logger = get_logger(__name__)
 
@@ -65,26 +66,25 @@ def build_interview_email(
 ) -> EmailContent:
     settings = get_settings()
     subject = f"Interview Invitation — {job_title}"
-    # Custom body (from the job's interview_message) replaces the default intro
-    # paragraph; the branded shell, details block and join button are kept.
-    if custom_message and custom_message.strip():
-        body_html = _render_template(
-            custom_message.strip(),
-            {
-                "name": name,
-                "job_title": job_title,
-                "score": round(score),
-                "interview_time": interview_time,
-                "meet_link": meet_link,
-            },
-        ).replace("\n", "<br>")
-        intro_html = f"<p style='color:#6b7280;font-size:14px;line-height:1.7'>{body_html}</p>"
-    else:
-        intro_html = (
-            "<p style='color:#6b7280;font-size:14px;line-height:1.7'>You have been shortlisted for "
-            f"<strong style='color:#1e40af'>{job_title}</strong> with a match score of "
-            f"<strong style='color:#059669'>{round(score)}%</strong>.</p>"
-        )
+    # Body precedence: per-job custom text → HR's saved global default → the
+    # built-in canonical default. Whichever wins fills the intro paragraph; the
+    # branded shell, details block and join button are always kept.
+    message = (
+        custom_message.strip()
+        if (custom_message and custom_message.strip())
+        else get_template("default_interview_message")
+    )
+    body_html = _render_template(
+        message,
+        {
+            "name": name,
+            "job_title": job_title,
+            "score": round(score),
+            "interview_time": interview_time,
+            "meet_link": meet_link,
+        },
+    ).replace("\n", "<br>")
+    intro_html = f"<p style='color:#6b7280;font-size:14px;line-height:1.7'>{body_html}</p>"
     strengths_html = "".join(f"<li style='margin:4px 0'>{s}</li>" for s in (strengths or [])[:3])
     strengths_block = (
         "<div style='background:#eff6ff;border-radius:8px;padding:14px;margin:16px 0'>"
@@ -127,16 +127,13 @@ def build_rejection_email(
 ) -> EmailContent:
     settings = get_settings()
     subject = f"Application Update — {job_title}"
-    if custom_message and custom_message.strip():
-        body = _render_template(
-            custom_message.strip(), {"name": name, "job_title": job_title}
-        ).replace("\n", "<br>")
-    else:
-        body = (
-            f"Thank you for applying for <strong>{job_title}</strong>. After careful review, "
-            "your profile does not match our current requirements. We will keep your CV on "
-            "file for future opportunities."
-        )
+    # Precedence: per-job custom → saved global default → built-in default.
+    message = (
+        custom_message.strip()
+        if (custom_message and custom_message.strip())
+        else get_template("default_rejection_message")
+    )
+    body = _render_template(message, {"name": name, "job_title": job_title}).replace("\n", "<br>")
     html = f"""<!DOCTYPE html><html><body style="margin:0;background:#f3f4f6;font-family:'Segoe UI',Arial,sans-serif">
 <table width="100%" cellpadding="0" cellspacing="0" style="padding:32px 16px"><tr><td align="center">
 <table width="600" style="background:#fff;border-radius:12px;overflow:hidden">

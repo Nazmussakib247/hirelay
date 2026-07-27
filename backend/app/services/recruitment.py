@@ -105,6 +105,7 @@ class MatchingService:
             job_title=job["title"],
             job_description=job["description"] or "",
             skill_weights=parse_skill_weights(job_dict.get("skill_weights")),
+            threshold=job_dict.get("match_threshold"),
         )
 
         await self._matches.create(

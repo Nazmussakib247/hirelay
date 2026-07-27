@@ -220,6 +220,7 @@ class CandidateService:
                 job_title=job_row["title"] or "",
                 job_description=job_row["description"] or "",
                 skill_weights=weights,
+                threshold=job_row["match_threshold"],
             )
             # status stays 'pending' — HR confirms shortlist/reject afterwards.
             await self._candidates.set_match_result(

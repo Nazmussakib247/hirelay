@@ -50,6 +50,9 @@ import { JobsTab } from "./features/jobs/JobsTab";
 /* ─── EVALUATION TAB (extracted to ./features/evaluation/EvaluationTab) ─── */
 import { EvaluationTab } from "./features/evaluation/EvaluationTab";
 
+/* ─── SETTINGS TAB (default templates + public apply link) ─────────────── */
+import { SettingsTab } from "./features/settings/SettingsTab";
+
 /* ─── NAVIGATION ──────────────────────────────────────────────────────── */
 const TABS = [
   { id: "upload",     label: "CV Upload",   icon: Icon.fileText,  group: "Recruiting" },
@@ -60,8 +63,9 @@ const TABS = [
   { id: "jobs",       label: "Jobs",        icon: Icon.briefcase, group: "Manage"     },
   { id: "analytics",  label: "Analytics",   icon: Icon.chart,     group: "Insights"   },
   { id: "evaluation", label: "Evaluation",  icon: Icon.flask,     group: "Insights"   },
+  { id: "settings",   label: "Settings",    icon: Icon.settings,  group: "Configure"  },
 ];
-const NAV_GROUPS = ["Recruiting", "Manage", "Insights"];
+const NAV_GROUPS = ["Recruiting", "Manage", "Insights", "Configure"];
 
 const TAB_DESC = {
   upload:     "Upload CVs (PDF or DOCX) — AI automatically extracts name, skills, experience, and education",
@@ -72,6 +76,7 @@ const TAB_DESC = {
   jobs:       "Create and manage your open job positions",
   analytics:  "Full recruiting pipeline analytics — funnel metrics, score distribution, top skills, and job performance",
   evaluation: "Benchmark the matching engine — seed a 50-sample labelled dataset, run evaluation, view Accuracy / Precision / Recall / F1, confusion matrix, 6-config ablation study, and per-CV results",
+  settings:   "View and edit the default interview, rejection, and job-post templates, and copy the public apply link",
 };
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -103,7 +108,12 @@ import { NavItem } from "./layout/NavItem";
 
 /* ─── APP ROOT ────────────────────────────────────────────────────────── */
 export default function App() {
-  const [tab,     setTab]     = useState("upload");
+  // Persist the active tab in the URL hash so a browser reload restores the
+  // page the user was on (instead of snapping back to CV Upload).
+  const [tab, setTab] = useState(() => {
+    const h = window.location.hash.replace(/^#/, "");
+    return TABS.some(t => t.id === h) ? h : "upload";
+  });
   const [stats,   setStats]   = useState(null);
   const [jobs,    setJobs]    = useState([]);
   const [key,     setKey]     = useState(0);
@@ -151,6 +161,13 @@ export default function App() {
   }, []);
 
   const refresh = useCallback(() => setKey(k => k + 1), []);
+
+  // ── Keep the URL hash in sync with the active tab (reload-safe) ───────
+  useEffect(() => {
+    if (window.location.hash.replace(/^#/, "") !== tab) {
+      window.location.hash = tab;
+    }
+  }, [tab]);
 
   // ── Fetch dashboard data once authenticated ───────────────────────────
   useEffect(() => {
@@ -341,6 +358,7 @@ export default function App() {
               {tab === "jobs"       && <JobsTab       jobs={jobs} onRefresh={refresh} />}
               {tab === "analytics"  && <Analytics />}
               {tab === "evaluation" && <EvaluationTab />}
+              {tab === "settings"   && <SettingsTab />}
             </div>
           </Card>
         </main>

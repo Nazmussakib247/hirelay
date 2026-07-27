@@ -22,6 +22,7 @@ import httpx
 
 from app.config import get_settings
 from app.core.logging import get_logger
+from app.services.templates import get_template
 
 logger = get_logger(__name__)
 
@@ -47,35 +48,23 @@ def job_to_text(job: dict, max_skills: int = 6) -> str:
     apply_url = job.get("apply_url", "contact@yourcompany.com")
     contact_email = (job.get("contact_email") or "").strip()
 
-    custom = (job.get("post_message") or "").strip()
-    if custom:
-        fields = {
-            "title": job.get("title", ""),
-            "location": location,
-            "experience": exp,
-            "skills": skills or "See description",
-            "description": job.get("description") or "",
-            "apply_url": apply_url,
-            "contact_email": contact_email,
-        }
-        try:
-            return custom.format(**fields)
-        except (KeyError, IndexError, ValueError):
-            # Stray/unknown braces in the custom text — post it as written.
-            return custom
-
-    # Contact line is only added when a contact email is configured.
-    contact_line = f"📧 Contact: {contact_email}\n" if contact_email else ""
-    return (
-        f"📢 We're Hiring: {job['title']}\n\n"
-        f"📍 Location: {location}\n"
-        f"💼 Experience: {exp}+ years\n"
-        f"🛠️ Skills: {skills or 'See description'}\n\n"
-        f"{(job.get('description') or '')[:300]}\n\n"
-        f"👉 Apply Now: {apply_url}\n"
-        f"{contact_line}\n"
-        f"#hiring #{job['title'].replace(' ', '').lower()} #jobs #career #bangladesh"
-    )
+    # Precedence: per-job custom text → HR's saved global default → the
+    # built-in canonical default (all rendered with the same placeholders).
+    template = (job.get("post_message") or "").strip() or get_template("default_post_message")
+    fields = {
+        "title": job.get("title", ""),
+        "location": location,
+        "experience": exp,
+        "skills": skills or "See description",
+        "description": job.get("description") or "",
+        "apply_url": apply_url,
+        "contact_email": contact_email or "—",
+    }
+    try:
+        return template.format(**fields)
+    except (KeyError, IndexError, ValueError):
+        # Stray/unknown braces in the text — post it as written.
+        return template
 
 
 # LinkedIn versioned-API month pin. The old /v2/ugcPosts endpoint is retired

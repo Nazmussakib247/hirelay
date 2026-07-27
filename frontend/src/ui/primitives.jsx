@@ -267,8 +267,48 @@ const PlatformBadge = ({ platform, status }) => {
   );
 };
 
+/* Styled in-app confirmation dialog — replaces the browser's native
+   window.confirm(). Renders nothing until `open` is true. */
+const ConfirmModal = ({
+  open, title = "Are you sure?", message,
+  confirmLabel = "Confirm", cancelLabel = "Cancel",
+  danger = false, loading = false, onConfirm, onCancel,
+}) => {
+  if (!open) return null;
+  const onBackdrop = (e) => { if (e.target === e.currentTarget && !loading) onCancel?.(); };
+  return (
+    <div onClick={onBackdrop} style={{
+      position: "fixed", inset: 0, zIndex: 1100,
+      background: "rgba(0,0,0,.6)", backdropFilter: "blur(4px)",
+      display: "flex", alignItems: "center", justifyContent: "center", padding: "24px",
+    }}>
+      <div className="slide-down" role="dialog" aria-modal="true" style={{
+        width: "100%", maxWidth: 420, background: T.surface,
+        border: `1px solid ${T.borderHi}`, borderRadius: "16px", overflow: "hidden",
+        boxShadow: "0 24px 64px rgba(0,0,0,.5)",
+      }}>
+        <div style={{ padding: "22px 24px 6px" }}>
+          <h3 style={{ margin: 0, fontSize: "17px", fontWeight: 700, color: T.text1 }}>{title}</h3>
+        </div>
+        <div style={{ padding: "0 24px 18px" }}>
+          <p style={{ margin: "8px 0 0", fontSize: "13.5px", lineHeight: 1.55, color: T.text2 }}>{message}</p>
+        </div>
+        <div style={{
+          display: "flex", justifyContent: "flex-end", gap: "10px",
+          padding: "14px 24px", background: T.surfaceHi, borderTop: `1px solid ${T.border}`,
+        }}>
+          <Btn onClick={onCancel} disabled={loading} variant="secondary" size="sm">{cancelLabel}</Btn>
+          <Btn onClick={onConfirm} disabled={loading} variant={danger ? "danger" : "primary"} size="sm">
+            {loading ? <Spinner size={13} color={danger ? T.red : "#FFFFFF"} /> : confirmLabel}
+          </Btn>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export {
   Spinner, Badge, StatusBadge, SkillPill, ScoreRing, Logo, Card,
-  FieldLabel, SectionHead, Alert, EmptyState, Btn, Toggle,
+  FieldLabel, SectionHead, Alert, EmptyState, Btn, Toggle, ConfirmModal,
   PlatformIcon, PLATFORM_META, PlatformBadge,
 };

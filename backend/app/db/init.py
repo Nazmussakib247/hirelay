@@ -12,6 +12,7 @@ from app.config import get_settings
 from app.core.logging import get_logger
 from app.core.security import hash_password
 from app.db.pool import acquire
+from app.services import templates as template_store
 
 logger = get_logger(__name__)
 
@@ -62,6 +63,10 @@ ALTER TABLE jobs ADD COLUMN IF NOT EXISTS post_message TEXT;
 -- the built-in default template is used.
 ALTER TABLE jobs ADD COLUMN IF NOT EXISTS interview_message TEXT;
 ALTER TABLE jobs ADD COLUMN IF NOT EXISTS rejection_message TEXT;
+-- Optional per-job shortlist cutoff (0-100). NULL → fall back to the global,
+-- benchmark-tuned MATCH_THRESHOLD. Lets HR set a stricter bar for senior roles
+-- or a softer one for high-volume entry positions.
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS match_threshold INTEGER;
 
 CREATE TABLE IF NOT EXISTS candidates (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -218,6 +223,13 @@ CREATE TABLE IF NOT EXISTS evaluation_results (
     evaluated_at TIMESTAMP DEFAULT NOW()
 );
 
+-- Global key/value settings (e.g. HR-editable default message templates).
+CREATE TABLE IF NOT EXISTS app_settings (
+    key        TEXT PRIMARY KEY,
+    value      TEXT NOT NULL,
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
 CREATE INDEX IF NOT EXISTS idx_candidates_status ON candidates(status);
 CREATE INDEX IF NOT EXISTS idx_candidates_match_score ON candidates(match_score DESC);
 CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
@@ -258,4 +270,9 @@ async def init_database() -> None:
                 )
             else:
                 logger.info("seeded admin account from ADMIN_INITIAL_PASSWORD")
+
+        # Hydrate the in-process template cache with any saved overrides so the
+        # email builder / job poster serve HR's edited defaults immediately.
+        rows = await conn.fetch("SELECT key, value FROM app_settings")
+        template_store.load_overrides(rows)
     logger.info("database schema ready")

@@ -7,7 +7,7 @@ import { useState, useEffect } from "react";
 import { api, apiDownload } from "../../api/client";
 import { useAuth } from "../../auth/context";
 import { T, Icon } from "../../ui/foundation";
-import { Card, Spinner, Alert, FieldLabel, StatusBadge, ScoreRing, SkillPill, EmptyState, Btn } from "../../ui/primitives";
+import { Card, Spinner, Alert, FieldLabel, StatusBadge, ScoreRing, SkillPill, EmptyState, Btn, ConfirmModal } from "../../ui/primitives";
 
 export function CandidatesTab({ refresh, jobs }) {
   const [cands,     setCands]     = useState([]);
@@ -27,6 +27,15 @@ export function CandidatesTab({ refresh, jobs }) {
   const [search,    setSearch]    = useState("");    // name / email / skill query
   const [selectedIds, setSelectedIds] = useState(() => new Set()); // bulk selection
   const [bulkBusy,  setBulkBusy]  = useState(false);
+  // Styled in-app confirmation (replaces window.confirm). `run` performs the action.
+  const [confirm, setConfirm] = useState(null); // { title, message, confirmLabel, danger, run }
+  const [confirmBusy, setConfirmBusy] = useState(false);
+  const runConfirm = async () => {
+    if (!confirm?.run) return;
+    setConfirmBusy(true);
+    try { await confirm.run(); }
+    finally { setConfirmBusy(false); setConfirm(null); }
+  };
 
   const loadCands = () => {
     setLoading(true);
@@ -59,30 +68,45 @@ export function CandidatesTab({ refresh, jobs }) {
   const toggleSelectAll = () =>
     setSelectedIds(allVisibleSelected ? new Set() : new Set(cands.map(c => c.id)));
 
-  const bulkStatus = async (status) => {
+  const bulkStatus = (status) => {
     const ids = [...selectedIds];
     if (!ids.length) return;
-    if (!window.confirm(`Set ${ids.length} candidate(s) to "${status}"?`)) return;
-    setBulkBusy(true);
-    try {
-      await api("/candidates/bulk-status", { method: "POST", body: JSON.stringify({ candidate_ids: ids, status }) }, handleLogout);
-      setSelectedIds(new Set());
-      loadCands();
-    } catch (e) { alert(`Bulk update failed: ${e.message}`); }
-    finally { setBulkBusy(false); }
+    const label = status === "shortlisted" ? "Shortlist" : status === "rejected" ? "Reject" : "Update";
+    setConfirm({
+      title: `${label} ${ids.length} candidate(s)?`,
+      message: `This sets ${ids.length} selected candidate(s) to "${status}".`,
+      confirmLabel: label,
+      danger: status === "rejected",
+      run: async () => {
+        setBulkBusy(true);
+        try {
+          await api("/candidates/bulk-status", { method: "POST", body: JSON.stringify({ candidate_ids: ids, status }) }, handleLogout);
+          setSelectedIds(new Set());
+          loadCands();
+        } catch (e) { alert(`Bulk update failed: ${e.message}`); }
+        finally { setBulkBusy(false); }
+      },
+    });
   };
-  const bulkEmail = async () => {
+  const bulkEmail = () => {
     const ids = [...selectedIds];
     if (!ids.length) return;
-    if (!window.confirm(`Send the appropriate email to ${ids.length} candidate(s)?`)) return;
-    setBulkBusy(true);
-    try {
-      const r = await api("/candidates/bulk-email", { method: "POST", body: JSON.stringify({ candidate_ids: ids }) }, handleLogout);
-      alert(`Emails sent: ${r.sent}/${r.requested}. (Some may be skipped — e.g. pending or no interview scheduled.)`);
-      setSelectedIds(new Set());
-      loadCands();
-    } catch (e) { alert(`Bulk email failed: ${e.message}`); }
-    finally { setBulkBusy(false); }
+    setConfirm({
+      title: `Email ${ids.length} candidate(s)?`,
+      message: `The appropriate email (interview invite or rejection) is sent to each of the ${ids.length} selected candidate(s). Some may be skipped — e.g. still pending, or no interview scheduled.`,
+      confirmLabel: "Send emails",
+      danger: false,
+      run: async () => {
+        setBulkBusy(true);
+        try {
+          const r = await api("/candidates/bulk-email", { method: "POST", body: JSON.stringify({ candidate_ids: ids }) }, handleLogout);
+          alert(`Emails sent: ${r.sent}/${r.requested}. (Some may be skipped — e.g. pending or no interview scheduled.)`);
+          setSelectedIds(new Set());
+          loadCands();
+        } catch (e) { alert(`Bulk email failed: ${e.message}`); }
+        finally { setBulkBusy(false); }
+      },
+    });
   };
 
   const jobMap = Object.fromEntries((jobs || []).map(j => [j.id, j.title]));
@@ -159,15 +183,22 @@ export function CandidatesTab({ refresh, jobs }) {
   };
 
   // NEW: delete candidate
-  const handleDelete = async cid => {
-    if (!window.confirm("Delete this candidate and all their match/interview data? This cannot be undone.")) return;
-    setDeleting(cid);
-    try {
-      await api(`/candidates/${cid}`, { method: "DELETE" }, handleLogout);
-      setSel(null);
-      loadCands();
-    } catch (e) { alert(`Delete failed: ${e.message}`); }
-    finally { setDeleting(null); }
+  const handleDelete = cid => {
+    setConfirm({
+      title: "Delete candidate?",
+      message: "This permanently removes the candidate and all their match/interview data. This cannot be undone.",
+      confirmLabel: "Delete",
+      danger: true,
+      run: async () => {
+        setDeleting(cid);
+        try {
+          await api(`/candidates/${cid}`, { method: "DELETE" }, handleLogout);
+          setSel(null);
+          loadCands();
+        } catch (e) { alert(`Delete failed: ${e.message}`); }
+        finally { setDeleting(null); }
+      },
+    });
   };
 
   // NEW: re-upload CV for existing candidate
@@ -206,6 +237,16 @@ export function CandidatesTab({ refresh, jobs }) {
 
   return (
     <div>
+      <ConfirmModal
+        open={!!confirm}
+        title={confirm?.title}
+        message={confirm?.message}
+        confirmLabel={confirm?.confirmLabel}
+        danger={confirm?.danger}
+        loading={confirmBusy}
+        onConfirm={runConfirm}
+        onCancel={() => setConfirm(null)}
+      />
       {/* Filter Bar */}
       <div style={{ display: "flex", gap: "6px", marginBottom: "18px", alignItems: "center" }}>
         {["all", "pending", "shortlisted", "rejected"].map(f => (

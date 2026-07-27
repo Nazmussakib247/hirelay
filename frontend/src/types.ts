@@ -108,12 +108,23 @@ export interface Job {
    *  helper `jobToSkillList` tolerates both. */
   skill_weights: Record<string, number> | string | null;
   min_experience: number;
+  /** Per-job shortlist cutoff (0-100). null → the global default is used. */
+  match_threshold: number | null;
   status: JobStatus;
   location: string | null;
   post_message: string | null;
   interview_message: string | null;
   rejection_message: string | null;
   created_at?: string | null;
+}
+
+/** Global default message templates (Settings screen). */
+export interface TemplateSettings {
+  interview_message: string;
+  rejection_message: string;
+  post_message: string;
+  apply_url: string;
+  defaults: Record<string, string>;
 }
 
 export interface SkillWeightSuggestion {

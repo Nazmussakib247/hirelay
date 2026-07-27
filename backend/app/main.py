@@ -92,6 +92,7 @@ def _register_routers(app: FastAPI) -> None:
         matching,
         notifications,
         public,
+        settings,
     )
 
     for module in (
@@ -106,6 +107,7 @@ def _register_routers(app: FastAPI) -> None:
         analytics,
         notifications,
         public,
+        settings,
     ):
         app.include_router(module.router)
 

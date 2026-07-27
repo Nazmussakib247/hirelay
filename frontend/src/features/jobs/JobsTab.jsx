@@ -133,6 +133,9 @@ function SkillWeightEditor({ skills, setSkills, description, title }) {
    existing job (PATCH /jobs/{id}/skills). */
 function JobSkillsEditor({ job, onSaved }) {
   const [skills, setSkills] = useState(() => jobToSkillList(job));
+  const [threshold, setThreshold] = useState(
+    job.match_threshold === null || job.match_threshold === undefined ? "" : job.match_threshold
+  );
   const [saving, setSaving] = useState(false);
   const [err,    setErr]    = useState(null);
   const { handleLogout } = useAuth();
@@ -142,7 +145,12 @@ function JobSkillsEditor({ job, onSaved }) {
     try {
       await api(`/jobs/${job.id}/skills`, {
         method: "PATCH",
-        body: JSON.stringify(skillsToPayload(skills)),
+        body: JSON.stringify({
+          ...skillsToPayload(skills),
+          // Blank → null: backend leaves the existing threshold unchanged.
+          match_threshold: threshold === "" ? null
+            : Math.max(0, Math.min(100, parseInt(threshold, 10) || 0)),
+        }),
       }, handleLogout);
       onSaved?.();
     } catch (e) { setErr(e.message); }
@@ -153,6 +161,16 @@ function JobSkillsEditor({ job, onSaved }) {
     <div style={{ marginTop: "12px", borderTop: `1px solid ${T.border}`, paddingTop: "12px" }}>
       <SkillWeightEditor skills={skills} setSkills={setSkills}
         description={job.description} title={job.title} />
+      <div style={{ marginTop: "10px" }}>
+        <FieldLabel>Shortlist Threshold (0–100 · blank = default 55)</FieldLabel>
+        <input type="number" min="0" max="100" step="1" placeholder="Default (55)"
+          value={threshold}
+          onChange={(e) => {
+            const raw = e.target.value;
+            if (raw === "") { setThreshold(""); return; }
+            setThreshold(Math.max(0, Math.min(100, parseInt(raw, 10) || 0)));
+          }} />
+      </div>
       {err && <div style={{ marginTop: "8px" }}><Alert type="error">{err}</Alert></div>}
       <div style={{ marginTop: "10px" }}>
         <Btn onClick={save} disabled={saving} variant="primary" size="sm">
@@ -164,8 +182,7 @@ function JobSkillsEditor({ job, onSaved }) {
 }
 
 export function JobsTab({ jobs, onRefresh }) {
-  const blank = { title: "", description: "", min_experience: 0, location: "", post_message: "",
-    interview_message: "", rejection_message: "" };
+  const blank = { title: "", description: "", min_experience: 0, match_threshold: "", location: "", post_message: "" };
   const [form,    setForm]    = useState(blank);
   const [skills,  setSkills]  = useState([]);   // [{ name, weight }]
   const [saving,  setSaving]  = useState(false);
@@ -173,7 +190,6 @@ export function JobsTab({ jobs, onRefresh }) {
   const [err,     setErr]     = useState(null);
   const [editing, setEditing] = useState(null); // job id whose skills are being edited
   const [customMsg, setCustomMsg] = useState(false); // show the custom-message box
-  const [customEmails, setCustomEmails] = useState(false); // show the email-template boxes
   const { handleLogout, isAdmin } = useAuth();
   const [jobBusy, setJobBusy] = useState(null); // job id with a status/delete action in flight
 
@@ -210,15 +226,19 @@ export function JobsTab({ jobs, onRefresh }) {
           ...form,
           ...skillsToPayload(skills),
           min_experience: parseInt(form.min_experience) || 0,
+          // Blank → null so the backend applies the global default threshold.
+          match_threshold: form.match_threshold === "" || form.match_threshold === null
+            ? null : Math.max(0, Math.min(100, parseInt(form.match_threshold, 10) || 0)),
           location: (form.location || "").trim() || null,
           // Only send a custom message when the box is enabled; otherwise the
-          // backend uses the default announcement template.
+          // backend uses the default announcement template. Candidate interview
+          // & rejection emails always use the built-in templates.
           post_message: customMsg && form.post_message.trim() ? form.post_message : null,
-          interview_message: customEmails && form.interview_message.trim() ? form.interview_message : null,
-          rejection_message: customEmails && form.rejection_message.trim() ? form.rejection_message : null,
+          interview_message: null,
+          rejection_message: null,
         }),
       }, handleLogout);
-      setDone(true); setForm(blank); setSkills([]); setCustomMsg(false); setCustomEmails(false); onRefresh?.();
+      setDone(true); setForm(blank); setSkills([]); setCustomMsg(false); onRefresh?.();
       setTimeout(() => setDone(false), 3000);
     } catch (e) { setErr(e.message); }
     finally { setSaving(false); }
@@ -258,6 +278,17 @@ export function JobsTab({ jobs, onRefresh }) {
                   if (raw === "") { setForm((f) => ({ ...f, min_experience: "" })); return; }
                   const n = Math.max(0, Math.min(50, parseInt(raw, 10) || 0));
                   setForm((f) => ({ ...f, min_experience: n }));
+                }} />
+            </div>
+            <div>
+              <FieldLabel>Shortlist Threshold (0–100 · blank = default 55)</FieldLabel>
+              <input type="number" min="0" max="100" step="1" placeholder="Default (55)"
+                value={form.match_threshold}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (raw === "") { setForm((f) => ({ ...f, match_threshold: "" })); return; }
+                  const n = Math.max(0, Math.min(100, parseInt(raw, 10) || 0));
+                  setForm((f) => ({ ...f, match_threshold: n }));
                 }} />
             </div>
             <div>
@@ -305,63 +336,6 @@ export function JobsTab({ jobs, onRefresh }) {
                         background: T.surfaceHi, border: `1px solid ${T.border}`, color: T.text2,
                       }}>{p}</code>
                     ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Customize the candidate emails (interview invite + rejection) */}
-            <div style={{
-              border: `1px solid ${customEmails ? T.accentBd : T.border}`,
-              borderRadius: "12px", padding: "14px",
-              background: customEmails ? T.accentLo : T.surfaceHi, transition: "all .15s",
-            }}>
-              <label style={{ display: "flex", alignItems: "flex-start", gap: "11px", cursor: "pointer" }}>
-                <input type="checkbox" checked={customEmails}
-                  onChange={e => setCustomEmails(e.target.checked)}
-                  style={{ width: "16px", height: "16px", margin: "2px 0 0", padding: 0, minWidth: "16px",
-                    flexShrink: 0, accentColor: T.accent, cursor: "pointer", appearance: "auto",
-                    WebkitAppearance: "checkbox", border: "none", borderRadius: 0 }} />
-                <span style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                  <span style={{ fontSize: "13px", fontWeight: 700, color: T.text1 }}>Custom candidate emails</span>
-                  <span style={{ fontSize: "11.5px", color: T.text3, lineHeight: 1.45 }}>
-                    Off → the built-in interview &amp; rejection emails are used. Turn on to write your own.
-                  </span>
-                </span>
-              </label>
-              {customEmails && (
-                <div style={{ marginTop: "12px", display: "flex", flexDirection: "column", gap: "14px" }}>
-                  <div>
-                    <FieldLabel>Interview invite message</FieldLabel>
-                    <textarea rows={4}
-                      placeholder="Dear {name}, you're invited for the {job_title} interview on {interview_time}…"
-                      value={form.interview_message} onChange={setF("interview_message")}
-                      style={{ width: "100%", boxSizing: "border-box", fontFamily: "inherit", fontSize: "13px",
-                        lineHeight: 1.5, padding: "11px 12px", borderRadius: "9px", border: `1px solid ${T.border}`,
-                        background: T.surface, color: T.text1, resize: "vertical", outline: "none" }} />
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "7px" }}>
-                      <span style={{ fontSize: "11px", color: T.text3 }}>Placeholders:</span>
-                      {["{name}", "{job_title}", "{score}", "{interview_time}", "{meet_link}"].map(p => (
-                        <code key={p} style={{ fontSize: "11px", fontFamily: "ui-monospace, monospace", padding: "2px 7px",
-                          borderRadius: "6px", background: T.surfaceHi, border: `1px solid ${T.border}`, color: T.text2 }}>{p}</code>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <FieldLabel>Rejection message</FieldLabel>
-                    <textarea rows={4}
-                      placeholder="Dear {name}, thank you for applying for {job_title}…"
-                      value={form.rejection_message} onChange={setF("rejection_message")}
-                      style={{ width: "100%", boxSizing: "border-box", fontFamily: "inherit", fontSize: "13px",
-                        lineHeight: 1.5, padding: "11px 12px", borderRadius: "9px", border: `1px solid ${T.border}`,
-                        background: T.surface, color: T.text1, resize: "vertical", outline: "none" }} />
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "7px" }}>
-                      <span style={{ fontSize: "11px", color: T.text3 }}>Placeholders:</span>
-                      {["{name}", "{job_title}"].map(p => (
-                        <code key={p} style={{ fontSize: "11px", fontFamily: "ui-monospace, monospace", padding: "2px 7px",
-                          borderRadius: "6px", background: T.surfaceHi, border: `1px solid ${T.border}`, color: T.text2 }}>{p}</code>
-                      ))}
-                    </div>
                   </div>
                 </div>
               )}
@@ -416,6 +390,8 @@ export function JobsTab({ jobs, onRefresh }) {
                     </div>
                     <div style={{ display: "flex", gap: "6px", marginBottom: "8px", flexWrap: "wrap" }}>
                       <Badge label={`${j.min_experience || 0}+ yrs`} color={T.text2} bg={T.surfaceHi} border={T.border} />
+                      {j.match_threshold != null &&
+                        <Badge label={`cutoff ${j.match_threshold}`} color={T.text2} bg={T.surfaceHi} border={T.border} />}
                       {j.status === "active"
                         ? <Badge label="active" color={T.green} bg={T.greenLo} border={T.greenBd} />
                         : <Badge label={j.status || "closed"} color={T.amber} bg={T.amberLo} border={T.amberBd} />}

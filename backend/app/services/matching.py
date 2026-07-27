@@ -336,9 +336,15 @@ async def score_candidate(
     job_title: str,
     job_description: str,
     skill_weights: dict[str, float] | None = None,
+    threshold: int | None = None,
 ) -> MatchBreakdown:
-    """Compute the full match breakdown for a candidate/job pair."""
+    """Compute the full match breakdown for a candidate/job pair.
+
+    ``threshold`` is the per-job shortlist cutoff; when None the global,
+    benchmark-tuned ``MATCH_THRESHOLD`` is used.
+    """
     settings = get_settings()
+    effective_threshold = threshold if threshold is not None else settings.match_threshold
     skill = skill_match_score(candidate_skills, required_skills, skill_weights)
     experience = experience_score(candidate_experience, min_experience)
     tfidf = tfidf_similarity(candidate_text, f"{job_description} {' '.join(required_skills)}")
@@ -354,14 +360,14 @@ async def score_candidate(
     # back to the validated non-AI weight profile (50/30/20).
     has_ai = settings.ai_enabled and ai.ok
     score = final_score(skill, experience, tfidf, ai.score, has_ai)
-    status = "shortlisted" if score >= settings.match_threshold else "rejected"
+    status = "shortlisted" if score >= effective_threshold else "rejected"
     return MatchBreakdown(
         skill_match=skill,
         experience_match=experience,
         text_similarity=tfidf,
         ai_score=ai.score,
         has_ai=has_ai,
-        threshold=settings.match_threshold,
+        threshold=effective_threshold,
         final_score=score,
         status=status,
         ai_summary=ai.summary,
