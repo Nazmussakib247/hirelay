@@ -45,6 +45,9 @@ with a coherent system:
     <td><img src="documentation/screenshots/06_evaluation_ablation.png" alt="Evaluation"/><br/><sub><b>Evaluation suite — ablation study</b></sub></td>
   </tr>
   <tr>
+    <td colspan="2" align="center"><img src="documentation/screenshots/07.1_Job_Configuration.png" alt="Job configuration" width="88%"/><br/><sub><b>Job configuration with weighted skill setup</b></sub></td>
+  </tr>
+  <tr>
     <td><img src="documentation/screenshots/07_job_posting.png" alt="Job posting"/><br/><sub><b>Multi-platform job posting</b></sub></td>
     <td><img src="documentation/screenshots/08_interview_detail.png" alt="Interview"/><br/><sub><b>Interview scheduling &amp; feedback</b></sub></td>
   </tr>
