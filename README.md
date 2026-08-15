@@ -6,11 +6,6 @@ HR; an AI-assisted engine parses each CV and scores it against open positions;
 shortlisting, interview invitations, and multi-platform job advertising are all
 handled from a single dashboard, with an n8n layer for hands-off automation.
 
-Built as a CSE4100 Field Work project with a deliberate emphasis on honest
-engineering — the matching accuracy is reported with a proper held-out
-evaluation protocol rather than an inflated in-sample number (see
-`Documentation/accuracy/ACCURACY.md`).
-
 ---
 
 ## Overview
@@ -42,7 +37,7 @@ with a coherent system:
     <td width="50%"><img src="Documentation/screenshots/02_cv_upload.png" alt="CV upload"/><br/><sub><b>CV upload with automatic parsing</b></sub></td>
   </tr>
   <tr>
-    <td><img src="Documentation/screenshots/03_ai_match.png" alt="AI match"/><br/><sub><b>AI matching run</b></sub></td>
+    <td><img src="\documentation\screenshots\03.1_ai_match.png" alt="AI match"/><br/><sub><b>AI matching run</b></sub></td>
     <td><img src="Documentation/screenshots/04_candidates_list.png" alt="Candidates"/><br/><sub><b>Candidate management</b></sub></td>
   </tr>
   <tr>
