@@ -26,8 +26,10 @@ from app.schemas.candidate import (
     BulkRejectResponse,
     BulkStatusRequest,
     BulkStatusResponse,
+    BulkUploadResponse,
     CandidateNotesUpdate,
     CandidateStatusUpdate,
+    UploadItemResult,
     UploadResponse,
 )
 from app.schemas.common import Page
@@ -75,6 +77,58 @@ async def upload_cv(
         },
     )
     return result
+
+
+@router.post("/upload-cv-bulk", response_model=BulkUploadResponse)
+async def upload_cv_bulk(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    conn: ConnDep,
+    user: CurrentUserDep,
+    files: list[UploadFile] = File(...),
+) -> BulkUploadResponse:
+    """Upload multiple CVs in one request.
+
+    Each file is parsed independently: one corrupt/unsupported file records an
+    error for that entry and the rest of the batch still proceeds, mirroring
+    the per-file feedback the single-upload flow already gives HR.
+    """
+    results: list[UploadItemResult] = []
+    for f in files:
+        try:
+            filename = _require_filename(f)
+            data = await read_capped_upload(f, request)
+            result = await CandidateService(conn).upload(filename, data, user.id)
+            background_tasks.add_task(
+                trigger_cv_uploaded,
+                {
+                    "event": "cv_uploaded",
+                    "candidate_id": result.candidate_id,
+                    "candidate_name": result.extracted.name,
+                    "candidate_email": result.extracted.email,
+                    "skills": result.extracted.skills,
+                    "uploaded_by": user.id,
+                },
+            )
+            results.append(
+                UploadItemResult(
+                    filename=filename,
+                    success=True,
+                    candidate_id=result.candidate_id,
+                    extracted=result.extracted,
+                    parse_confidence=result.parse_confidence,
+                    duplicate_of=result.duplicate_of,
+                )
+            )
+        except Exception as e:  # noqa: BLE001 - isolate this file's failure from the batch
+            results.append(
+                UploadItemResult(filename=f.filename or "unknown", success=False, error=str(e))
+            )
+
+    succeeded = sum(1 for r in results if r.success)
+    return BulkUploadResponse(
+        total=len(files), succeeded=succeeded, failed=len(files) - succeeded, results=results
+    )
 
 
 @router.get("/candidates", response_model=Page[dict])

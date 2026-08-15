@@ -34,6 +34,16 @@ export function JobPostingTab({ jobs }) {
 
   const configured = Object.entries(platforms).filter(([, v]) => v).map(([k]) => k);
 
+  // The DB stores naive UTC timestamps (TIMESTAMP without zone). Mark them as
+  // UTC so the browser converts to the viewer's local time — otherwise the
+  // hours read ~6h off in Bangladesh.
+  const fmtWhen = (s) => {
+    if (!s) return "—";
+    const hasZone = /[zZ]|[+-]\d\d:?\d\d$/.test(s);
+    const iso = hasZone ? s : s.replace(" ", "T") + "Z";
+    return new Date(iso).toLocaleString("en-US", { dateStyle: "short", timeStyle: "short" });
+  };
+
   return (
     <div style={{ display: "grid", gap: "20px" }}>
       {/* Platform Status + Selector */}
@@ -167,12 +177,27 @@ export function JobPostingTab({ jobs }) {
                       {h.job_title || "—"}
                     </td>
                     <td style={{ padding: "11px 12px" }}>
-                      <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                      <div style={{ display: "flex", gap: "11px", alignItems: "center" }}>
                         {(h.platforms_attempted || []).map(p => {
                           const Ic = PlatformIcon[p];
-                          return Ic
-                            ? <span key={p} title={PLATFORM_META[p]?.label || p}><Ic /></span>
-                            : <span key={p} style={{ fontSize: "13px" }} title={p}>🌐</span>;
+                          const status = res[p]?.status;
+                          const ok = status === "success";
+                          return (
+                            <span key={p}
+                              title={`${PLATFORM_META[p]?.label || p}: ${status || "unknown"}`}
+                              style={{ position: "relative", display: "inline-flex", alignItems: "center",
+                                opacity: ok ? 1 : 0.32 }}>
+                              {Ic ? <Ic /> : <span style={{ fontSize: "13px" }}>🌐</span>}
+                              {ok && (
+                                <span style={{
+                                  position: "absolute", right: -5, bottom: -4,
+                                  width: 12, height: 12, borderRadius: "50%",
+                                  background: T.green, color: "#fff",
+                                  fontSize: 8, lineHeight: "12px", textAlign: "center",
+                                  fontWeight: 700, border: `1.5px solid ${T.surface}` }}>✓</span>
+                              )}
+                            </span>
+                          );
                         })}
                       </div>
                     </td>
@@ -180,7 +205,7 @@ export function JobPostingTab({ jobs }) {
                       <Badge label={`${successes} posted`} color={T.green} bg={T.greenLo} border={T.greenBd} />
                     </td>
                     <td style={{ padding: "11px 12px", color: T.text3, fontSize: "12px" }}>
-                      {new Date(h.posted_at).toLocaleString("en-US", { dateStyle: "short", timeStyle: "short" })}
+                      {fmtWhen(h.posted_at)}
                     </td>
                   </tr>
                 );

@@ -51,6 +51,26 @@ class UploadResponse(BaseModel):
     duplicate_of: str | None = None
 
 
+class UploadItemResult(BaseModel):
+    """Per-file outcome inside a batch upload (one bad file must not fail the rest)."""
+
+    filename: str
+    success: bool
+    candidate_id: str | None = None
+    extracted: ExtractedFields | None = None
+    parse_confidence: int | None = None
+    duplicate_of: str | None = None
+    error: str | None = None
+
+
+class BulkUploadResponse(BaseModel):
+    success: bool = True
+    total: int
+    succeeded: int
+    failed: int
+    results: list[UploadItemResult]
+
+
 class BulkRejectRequest(BaseModel):
     candidate_ids: list[str] = Field(..., min_length=1, max_length=200)
     send_emails: bool = False

@@ -12,6 +12,7 @@ export function UploadZone({ onSuccess }) {
   const [busy,  setBusy]  = useState(false);
   const [res,   setRes]   = useState(null);
   const [err,   setErr]   = useState(null);
+  const [batch, setBatch] = useState(null); // BulkUploadResponse when >1 file dropped
 
   // FIX: pull handleLogout so api() redirects to login on 401
   const { handleLogout } = useAuth();
@@ -19,7 +20,7 @@ export function UploadZone({ onSuccess }) {
   const handle = async file => {
     if (!file) return;
     if (!file.name.match(/\.(pdf|docx|doc)$/i)) { setErr("Only PDF or DOCX files are supported"); return; }
-    setBusy(true); setErr(null); setRes(null);
+    setBusy(true); setErr(null); setRes(null); setBatch(null);
     const fd = new FormData();
     fd.append("file", file);
     try {
@@ -31,6 +32,31 @@ export function UploadZone({ onSuccess }) {
     finally { setBusy(false); }
   };
 
+  // Multiple files: single request to /upload-cv-bulk, one FormData field
+  // per file (same "files" key repeated) — FastAPI collects these into a list.
+  const handleMany = async fileList => {
+    const files = Array.from(fileList).filter(f =>
+      f.name.match(/\.(pdf|docx|doc)$/i)
+    );
+    if (!files.length) { setErr("Only PDF or DOCX files are supported"); return; }
+    setBusy(true); setErr(null); setRes(null); setBatch(null);
+    const fd = new FormData();
+    files.forEach(f => fd.append("files", f));
+    try {
+      const d = await api(`/upload-cv-bulk`, { method: "POST", body: fd }, handleLogout);
+      setBatch(d);
+      onSuccess?.();
+    } catch (e) { setErr(e.message); }
+    finally { setBusy(false); }
+  };
+
+  // Route single vs multi drop/pick to the right call
+  const handleFiles = fileList => {
+    if (!fileList || fileList.length === 0) return;
+    if (fileList.length === 1) handle(fileList[0]);
+    else handleMany(fileList);
+  };
+
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
       {/* Drop Zone */}
@@ -38,7 +64,7 @@ export function UploadZone({ onSuccess }) {
         <div
           onDragOver={e => { e.preventDefault(); setDrag(true); }}
           onDragLeave={() => setDrag(false)}
-          onDrop={e => { e.preventDefault(); setDrag(false); handle(e.dataTransfer.files[0]); }}
+          onDrop={e => { e.preventDefault(); setDrag(false); handleFiles(e.dataTransfer.files); }}
           onClick={() => document.getElementById("cvf").click()}
           style={{
             border: `2px dashed ${drag ? T.accent : T.border}`,
@@ -50,8 +76,8 @@ export function UploadZone({ onSuccess }) {
             transition: "all .2s",
           }}
         >
-          <input id="cvf" type="file" accept=".pdf,.docx,.doc"
-            style={{ display: "none" }} onChange={e => handle(e.target.files[0])} />
+          <input id="cvf" type="file" accept=".pdf,.docx,.doc" multiple
+            style={{ display: "none" }} onChange={e => handleFiles(e.target.files)} />
           <div style={{ marginBottom: "16px", display: "flex", justifyContent: "center" }}>
             {busy
               ? <Spinner size={36} color={T.accent} />
@@ -60,7 +86,7 @@ export function UploadZone({ onSuccess }) {
           <div style={{ color: T.text1, fontWeight: 600, fontSize: "15px", marginBottom: "6px" }}>
             {busy ? "Parsing CV…" : "Drop CV here or click to upload"}
           </div>
-          <div style={{ color: T.text3, fontSize: "13px" }}>PDF · DOCX · DOC supported</div>
+          <div style={{ color: T.text3, fontSize: "13px" }}>PDF · DOCX · DOC supported — select or drop multiple files</div>
         </div>
 
         {err && <div style={{ marginTop: "12px" }}><Alert type="error"><Icon.alert width={14} height={14} style={{ display: "inline", verticalAlign: "-2px", marginRight: "4px" }} />{err}</Alert></div>}
@@ -68,7 +94,31 @@ export function UploadZone({ onSuccess }) {
 
       {/* Result */}
       <div>
-        {res ? (
+        {batch ? (
+          <Card className="fade-up" style={{ padding: "22px" }}>
+            <div style={{ color: T.text1, fontWeight: 700, fontSize: "14px", marginBottom: "14px" }}>
+              Batch Upload: {batch.succeeded}/{batch.total} succeeded
+              {batch.failed > 0 && (
+                <span style={{ color: T.text3, fontWeight: 500 }}> &middot; {batch.failed} failed</span>
+              )}
+            </div>
+            <div style={{ display: "grid", gap: "8px", maxHeight: "320px", overflowY: "auto" }}>
+              {batch.results.map((r, i) => (
+                <div key={i} style={{
+                  display: "flex", justifyContent: "space-between", gap: "12px",
+                  padding: "8px 10px", borderRadius: "8px",
+                  background: r.success ? T.greenLo : T.surfaceHi,
+                  border: `1px solid ${r.success ? T.greenBd : T.border}`,
+                }}>
+                  <span style={{ color: T.text1, fontSize: "13px" }}>{r.filename}</span>
+                  <span style={{ color: r.success ? T.green : T.text3, fontSize: "12px" }}>
+                    {r.success ? (r.extracted?.name || "Parsed") : r.error}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </Card>
+        ) : res ? (
           <Card className="fade-up" style={{ padding: "22px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "18px" }}>
               <div style={{
