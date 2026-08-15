@@ -33,31 +33,31 @@ with a coherent system:
 
 <table>
   <tr>
-    <td width="50%"><img src="Documentation/screenshots/01_login.png" alt="Login"/><br/><sub><b>Secure login</b></sub></td>
-    <td width="50%"><img src="Documentation/screenshots/02_cv_upload.png" alt="CV upload"/><br/><sub><b>CV upload with automatic parsing</b></sub></td>
+    <td width="50%"><img src="documentation/screenshots/01_login.png" alt="Login"/><br/><sub><b>Secure login</b></sub></td>
+    <td width="50%"><img src="documentation/screenshots/02_cv_upload.png" alt="CV upload"/><br/><sub><b>CV upload with automatic parsing</b></sub></td>
   </tr>
   <tr>
     <td><img src="\documentation\screenshots\03.1_ai_match.png" alt="AI match"/><br/><sub><b>AI matching run</b></sub></td>
-    <td><img src="Documentation/screenshots/04_candidates_list.png" alt="Candidates"/><br/><sub><b>Candidate management</b></sub></td>
+    <td><img src="documentation/screenshots/04_candidates_list.png" alt="Candidates"/><br/><sub><b>Candidate management</b></sub></td>
   </tr>
   <tr>
-    <td><img src="Documentation/screenshots/05_candidate_detail.png" alt="Candidate detail"/><br/><sub><b>Candidate detail — parse confidence &amp; AI summary</b></sub></td>
-    <td><img src="Documentation/screenshots/06_evaluation_ablation.png" alt="Evaluation"/><br/><sub><b>Evaluation suite — ablation study</b></sub></td>
+    <td><img src="documentation/screenshots/05_candidate_detail.png" alt="Candidate detail"/><br/><sub><b>Candidate detail — parse confidence &amp; AI summary</b></sub></td>
+    <td><img src="documentation/screenshots/06_evaluation_ablation.png" alt="Evaluation"/><br/><sub><b>Evaluation suite — ablation study</b></sub></td>
   </tr>
   <tr>
-    <td><img src="Documentation/screenshots/07_job_posting.png" alt="Job posting"/><br/><sub><b>Multi-platform job posting</b></sub></td>
-    <td><img src="Documentation/screenshots/08_interview_detail.png" alt="Interview"/><br/><sub><b>Interview scheduling &amp; feedback</b></sub></td>
+    <td><img src="documentation/screenshots/07_job_posting.png" alt="Job posting"/><br/><sub><b>Multi-platform job posting</b></sub></td>
+    <td><img src="documentation/screenshots/08_interview_detail.png" alt="Interview"/><br/><sub><b>Interview scheduling &amp; feedback</b></sub></td>
   </tr>
   <tr>
-    <td><img src="Documentation/screenshots/09_interview_calendar.png" alt="Calendar"/><br/><sub><b>Interview calendar</b></sub></td>
-    <td><img src="Documentation/screenshots/10_public_apply.png" alt="Public apply"/><br/><sub><b>Public application page</b></sub></td>
+    <td><img src="documentation/screenshots/09_interview_calendar.png" alt="Calendar"/><br/><sub><b>Interview calendar</b></sub></td>
+    <td><img src="documentation/screenshots/10_public_apply.png" alt="Public apply"/><br/><sub><b>Public application page</b></sub></td>
   </tr>
   <tr>
-    <td colspan="2" align="center"><img src="Documentation/screenshots/11_n8n_workflow.png" alt="n8n workflow" width="88%"/><br/><sub><b>n8n workflow automating the recruitment pipeline</b></sub></td>
+    <td colspan="2" align="center"><img src="documentation/screenshots/11_n8n_workflow.png" alt="n8n workflow" width="88%"/><br/><sub><b>n8n workflow automating the recruitment pipeline</b></sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="Documentation/screenshots/12_telegram_post.png" alt="Telegram post" width="260"/><br/><sub><b>Automated Telegram job post</b></sub></td>
-    <td align="center"><img src="Documentation/screenshots/13_interview_email.png" alt="Interview email" width="230"/><br/><sub><b>Interview invitation email</b></sub></td>
+    <td align="center"><img src="documentation/screenshots/12_telegram_post.png" alt="Telegram post" width="260"/><br/><sub><b>Automated Telegram job post</b></sub></td>
+    <td align="center"><img src="documentation/screenshots/13_interview_email.png" alt="Interview email" width="230"/><br/><sub><b>Interview invitation email</b></sub></td>
   </tr>
 </table>
 
