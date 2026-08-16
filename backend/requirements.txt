@@ -1,21 +1,22 @@
 # ── Runtime dependencies ──────────────────────────────────────────────────
-# Pinned for reproducible builds. Update via a dependency-review PR.
-fastapi==0.111.0
-uvicorn[standard]==0.29.0
-python-multipart==0.0.9
-asyncpg==0.29.0
+# Pinned for reproducible builds. Updated to versions with prebuilt cp314
+# wheels (Render's Python 3.14 runtime) to avoid source builds.
+fastapi==0.115.14
+uvicorn[standard]==0.34.3
+python-multipart==0.0.20
+asyncpg==0.30.0
 # PDF text extraction: dual engine — pdfplumber (layout/table aware) with
 # pypdf as fallback. PyPDF2 was removed (deprecated upstream).
-pypdf==4.3.1
+pypdf==5.9.0
 pdfplumber==0.11.4
 python-docx==1.1.2
-httpx==0.27.0
-PyJWT==2.8.0
+httpx==0.28.1
+PyJWT==2.10.1
 
 # Configuration & validation
-pydantic==2.7.1
-pydantic-settings==2.2.1
-email-validator==2.1.1
+pydantic==2.11.7
+pydantic-settings==2.9.1
+email-validator==2.2.0
 
 # Password hashing
 # NOTE: passlib 1.7.4 (last released 2020) probes the bcrypt backend with a
