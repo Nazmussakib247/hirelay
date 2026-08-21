@@ -28,7 +28,7 @@ async def connect() -> asyncpg.Pool:
         settings = get_settings()
         _pool = await asyncpg.create_pool(
             "postgresql://postgres.tnuqfmtzmxxrfdebzzxz:jM4RdgGr4tyXeVoW@aws-0-ap-south-1.pooler.supabase.com:6543/postgres?sslmode=require",
-            min_size=settings.db_pool_min_size,
+            min_size=settings.DB_POOL_MIN_SIZE, statement_cache_size=0,
             max_size=settings.db_pool_max_size,
         )
         logger.info(
