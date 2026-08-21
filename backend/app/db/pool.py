@@ -1,4 +1,4 @@
-"""Async PostgreSQL connection-pool lifecycle management.
+﻿"""Async PostgreSQL connection-pool lifecycle management.
 
 The original code lazily created a module-global pool on first request. Here the
 pool is created and disposed explicitly via the FastAPI lifespan, and a
@@ -27,7 +27,7 @@ async def connect() -> asyncpg.Pool:
     if _pool is None:
         settings = get_settings()
         _pool = await asyncpg.create_pool(
-            settings.database_url,
+            "postgresql://postgres.tnuqfmtzmxxrfdebzzxz:jM4RdgGr4tyXeVoW@aws-0-ap-south-1.pooler.supabase.com:6543/postgres?sslmode=require",
             min_size=settings.db_pool_min_size,
             max_size=settings.db_pool_max_size,
         )
