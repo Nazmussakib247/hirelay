@@ -15,24 +15,18 @@ services:
       - key: LOG_JSON
         value: "true"
       - key: DATABASE_URL
-        sync: false
+        value: postgresql://postgres.tnuqfmtzmxxrfdebzzxz:82Oo0C5u48rZr6qJZ7q0+JCeewaE0iTc@aws-0-ap-south-1.pooler.supabase.com:5432/postgres
       - key: JWT_SECRET
-        sync: false
+        value: 3923e152a9dc603abef9f7a4176b567269b623a158e3f44621cddcfc627bf7be
       - key: CORS_ORIGINS
-        sync: false
+        value: https://hirelay.netlify.app
       - key: PUBLIC_BASE_URL
-        sync: false
+        value: https://hirelay.onrender.com
       - key: APPLY_URL
-        sync: false
+        value: https://hirelay.netlify.app/#upload
       - key: ADMIN_INITIAL_PASSWORD
-        sync: false
+        value: ecc2ea538f77a47b1a73577af8acf889
       - key: HR_ADMIN_EMAIL
-        sync: false
-      - key: GROQ_API_KEY
-        sync: false
+        value: usaasakib@gmail.com
       - key: GROQ_MODEL
         value: llama-3.1-8b-instant
-      - key: N8N_WEBHOOK_URL
-        sync: false
-      - key: N8N_CV_WEBHOOK_URL
-        sync: false
