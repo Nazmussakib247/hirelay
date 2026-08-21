@@ -30,3 +30,4 @@ services:
         value: usaasakib@gmail.com
       - key: GROQ_MODEL
         value: llama-3.1-8b-instant
+
